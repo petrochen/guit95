@@ -46,7 +46,7 @@ const nextName   = document.getElementById("next-name")   as HTMLElement;
 const allChords  = document.getElementById("all-chords")  as HTMLElement;
 const tabRow     = document.getElementById("tab-row")     as HTMLElement;
 const btnVert    = document.getElementById("btn-vert")    as HTMLButtonElement;
-const btnHoriz   = document.getElementById("btn-horiz")   as HTMLButtonElement;
+const btnHoriz   = document.getElementById("btn-horiz")  as HTMLButtonElement;
 
 // Playback controls
 const speedSlider  = document.getElementById("speed-slider")  as HTMLInputElement;
@@ -56,6 +56,12 @@ const abBtnB       = document.getElementById("ab-b")          as HTMLButtonEleme
 const loopToggle   = document.getElementById("loop-toggle")   as HTMLButtonElement;
 const loopClear    = document.getElementById("loop-clear")    as HTMLButtonElement;
 
+// Phase 3b controls
+const preset50     = document.getElementById("preset-50")     as HTMLButtonElement;
+const preset75     = document.getElementById("preset-75")     as HTMLButtonElement;
+const preset100    = document.getElementById("preset-100")    as HTMLButtonElement;
+const loopHereBtn  = document.getElementById("loop-here")     as HTMLButtonElement;
+
 // ── Diagram renderers ─────────────────────────────────────────────────────────
 const nowDiagram  = new ChordDiagram(nowCanvas,  IMG_URL);
 const nextDiagram = new ChordDiagram(nextCanvas, IMG_URL);
@@ -63,6 +69,13 @@ const nextDiagram = new ChordDiagram(nextCanvas, IMG_URL);
 // ── Speed control ──────────────────────────────────────────────────────────────
 const savedRate = parseFloat(localStorage.getItem(SPEED_KEY) ?? "1");
 const initialRate = isFinite(savedRate) && savedRate >= 0.25 && savedRate <= 1.5 ? savedRate : 1;
+
+/** Update which speed preset button (if any) shows as active. */
+function updatePresetActive(r: number): void {
+  preset50.classList.toggle("active",  Math.abs(r - 0.5)  < 0.001);
+  preset75.classList.toggle("active",  Math.abs(r - 0.75) < 0.001);
+  preset100.classList.toggle("active", Math.abs(r - 1.0)  < 0.001);
+}
 
 function applyRate(r: number): void {
   video.playbackRate = r;
@@ -72,15 +85,23 @@ function applyRate(r: number): void {
   speedSlider.value = String(r);
   speedValue.textContent = r.toFixed(2) + "×";
   localStorage.setItem(SPEED_KEY, String(r));
+  updatePresetActive(r);
 }
 
 // Initialise slider immediately (before video metadata loads)
 speedSlider.value = String(initialRate);
 speedValue.textContent = initialRate.toFixed(2) + "×";
+updatePresetActive(initialRate);
+
 speedSlider.addEventListener("input", () => applyRate(parseFloat(speedSlider.value)));
 
 // Apply rate after video is ready (some browsers need this after src is set)
 video.addEventListener("loadedmetadata", () => applyRate(initialRate), { once: true });
+
+// Speed preset buttons
+preset50.addEventListener("click",  () => applyRate(0.5));
+preset75.addEventListener("click",  () => applyRate(0.75));
+preset100.addEventListener("click", () => applyRate(1.0));
 
 // ── A/B Loop state ─────────────────────────────────────────────────────────────
 let aPixel: number | null = null;
@@ -91,6 +112,8 @@ let loopOn = false;
 let sync: ScoreSync | null = null;
 // TabScroller reference set after creation
 let tabScroller: TabScroller | null = null;
+// Score reference (needed for bar walk in keyboard handlers)
+let score: { bars: number[]; startingPixel: number; endingPixel: number } | null = null;
 
 function updateMarkersUI(): void {
   // Update A button
@@ -156,6 +179,30 @@ abBtnB.addEventListener("click", () => setAtCurrent("b"));
 loopToggle.addEventListener("click", toggleLoop);
 loopClear.addEventListener("click", clearAB);
 
+// ── "Loop here" button ────────────────────────────────────────────────────────
+loopHereBtn.addEventListener("click", () => {
+  if (!sync || !score) return;
+  const currentPixel = sync.timeToPixel(video.currentTime);
+  const nearest = sync.nearestBar(currentPixel);
+  if (!nearest) return;
+
+  // nearest.index is 1-indexed; bars[] is 0-indexed.
+  // bars[nearest.index] is the bar AFTER nearest (since nearest is bars[nearest.index-1]).
+  const bars = score.bars;
+  let nextBarPx: number;
+  if (nearest.index < bars.length) {
+    nextBarPx = bars[nearest.index]!;
+  } else {
+    // At or past the last bar — use endingPixel
+    nextBarPx = score.endingPixel;
+  }
+
+  aPixel = nearest.pixel;
+  bPixel = nextBarPx;
+  loopOn = true;
+  updateMarkersUI();
+});
+
 // ── Loop enforcement — timeupdate (low-frequency check) ────────────────────────
 video.addEventListener("timeupdate", () => {
   if (!loopOn || !sync || aPixel === null || bPixel === null) return;
@@ -180,6 +227,213 @@ function loopRafTick(): void {
 }
 
 loopRafId = requestAnimationFrame(loopRafTick);
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+
+/** Returns true when the event target is a text-input-like element. */
+function isTypingTarget(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  if (!t) return false;
+  const tag = t.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (t.isContentEditable) return true;
+  return false;
+}
+
+/**
+ * Move a loop boundary by one bar in the requested direction.
+ * which: "A" moves aPixel, "B" moves bPixel.
+ * direction: -1 = toward start (earlier), +1 = toward end (later).
+ *
+ * "Priming" behaviour:
+ *   - If the boundary is null and the move is the natural expand direction
+ *     (A goes left = -1, B goes right = +1), set to nearest bar first.
+ *   - Shift-shrink with an unset boundary is a no-op (nothing to shrink).
+ *
+ * Clamping:
+ *   - aPixel >= startingPixel, bPixel <= endingPixel.
+ *   - aPixel < bPixel (refuse a move that would invert or equalise).
+ */
+function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
+  if (!sync || !score) return;
+  const bars = score.bars;
+  if (bars.length === 0) return;
+
+  if (which === "A") {
+    if (aPixel === null) {
+      // Priming: only if expanding (direction = -1)
+      if (direction !== -1) return;
+      const currentPixel = sync.timeToPixel(video.currentTime);
+      const nb = sync.nearestBar(currentPixel);
+      if (!nb) return;
+      aPixel = nb.pixel;
+      updateMarkersUI();
+      return;
+    }
+
+    // Walk bars in direction
+    let bestIdx = -1;
+    if (direction === -1) {
+      // Find the largest bar pixel < current aPixel
+      for (let i = bars.length - 1; i >= 0; i--) {
+        if (bars[i]! < aPixel) { bestIdx = i; break; }
+      }
+    } else {
+      // Find the smallest bar pixel > current aPixel
+      for (let i = 0; i < bars.length; i++) {
+        if (bars[i]! > aPixel) { bestIdx = i; break; }
+      }
+    }
+
+    if (bestIdx === -1) return; // already at boundary
+
+    let candidate = bars[bestIdx]!;
+
+    // Clamp at startingPixel
+    candidate = Math.max(score.startingPixel, candidate);
+
+    // Must remain < bPixel (if B is set)
+    if (bPixel !== null && candidate >= bPixel) return;
+
+    aPixel = candidate;
+
+  } else {
+    // which === "B"
+    if (bPixel === null) {
+      // Priming: only if expanding (direction = +1)
+      if (direction !== 1) return;
+      const currentPixel = sync.timeToPixel(video.currentTime);
+      const nb = sync.nearestBar(currentPixel);
+      if (!nb) return;
+      bPixel = nb.pixel;
+      updateMarkersUI();
+      return;
+    }
+
+    // Walk bars in direction
+    let bestIdx = -1;
+    if (direction === 1) {
+      // Find the smallest bar pixel > current bPixel
+      for (let i = 0; i < bars.length; i++) {
+        if (bars[i]! > bPixel) { bestIdx = i; break; }
+      }
+    } else {
+      // Find the largest bar pixel < current bPixel
+      for (let i = bars.length - 1; i >= 0; i--) {
+        if (bars[i]! < bPixel) { bestIdx = i; break; }
+      }
+    }
+
+    if (bestIdx === -1) return; // already at boundary
+
+    let candidate = bars[bestIdx]!;
+
+    // Clamp at endingPixel
+    candidate = Math.min(score.endingPixel, candidate);
+
+    // Must remain > aPixel (if A is set)
+    if (aPixel !== null && candidate <= aPixel) return;
+
+    bPixel = candidate;
+  }
+
+  updateMarkersUI();
+}
+
+/**
+ * Seek video to the previous or next bar boundary.
+ * direction: -1 = previous bar, +1 = next bar.
+ */
+function seekBars(direction: -1 | 1): void {
+  if (!sync || !score) return;
+  const bars = score.bars;
+  if (bars.length === 0) return;
+
+  const currentPixel = sync.timeToPixel(video.currentTime);
+
+  let targetPx: number | null = null;
+  if (direction === -1) {
+    // Previous: largest bar < currentPixel
+    for (let i = bars.length - 1; i >= 0; i--) {
+      if (bars[i]! < currentPixel - 1) { targetPx = bars[i]!; break; }
+    }
+  } else {
+    // Next: smallest bar > currentPixel
+    for (let i = 0; i < bars.length; i++) {
+      if (bars[i]! > currentPixel + 1) { targetPx = bars[i]!; break; }
+    }
+  }
+
+  if (targetPx === null) return;
+  video.currentTime = sync.pixelToTime(targetPx);
+}
+
+function handleKey(e: KeyboardEvent): void {
+  if (isTypingTarget(e)) return;
+
+  switch (e.code) {
+    case "Space":
+      e.preventDefault();
+      if (video.paused) {
+        video.play().catch(() => { /* ignore AbortError */ });
+      } else {
+        video.pause();
+      }
+      break;
+
+    case "BracketLeft":
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+[ : move A toward end (shrinks loop from left)
+        shiftLoopBoundary("A", 1);
+      } else {
+        // [ : move A toward start (expand loop left / prime A)
+        shiftLoopBoundary("A", -1);
+      }
+      break;
+
+    case "BracketRight":
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+] : move B toward start (shrinks loop from right)
+        shiftLoopBoundary("B", -1);
+      } else {
+        // ] : move B toward end (expand loop right / prime B)
+        shiftLoopBoundary("B", 1);
+      }
+      break;
+
+    case "KeyL":
+      e.preventDefault();
+      toggleLoop();
+      break;
+
+    case "KeyC":
+      e.preventDefault();
+      clearAB();
+      break;
+
+    case "ArrowLeft":
+      e.preventDefault();
+      if (e.shiftKey) {
+        seekBars(-1);
+      } else {
+        video.currentTime = Math.max(0, video.currentTime - 5);
+      }
+      break;
+
+    case "ArrowRight":
+      e.preventDefault();
+      if (e.shiftKey) {
+        seekBars(1);
+      } else {
+        video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5);
+      }
+      break;
+  }
+}
+
+window.addEventListener("keydown", handleKey);
 
 // ── Orientation ───────────────────────────────────────────────────────────────
 function updateOrientationButtons(): void {
@@ -263,18 +517,19 @@ async function init(): Promise<void> {
   updateOrientationButtons();
 
   // Load SCO score file
-  const score = await loadScore(SCO_URL);
+  const loadedScore = await loadScore(SCO_URL);
+  score = loadedScore;
 
   // SCO parser self-test
-  console.log(`SCO parser self-test: ${score.events.length} events, ${score.bars.length} bars`);
-  console.assert(score.events.length === 534, `SCO self-test: expected 534 events, got ${score.events.length}`);
+  console.log(`SCO parser self-test: ${loadedScore.events.length} events, ${loadedScore.bars.length} bars`);
+  console.assert(loadedScore.events.length === 534, `SCO self-test: expected 534 events, got ${loadedScore.events.length}`);
 
   // Create ScoreSync helper for A/B loop math
-  sync = new ScoreSync(score, video);
+  sync = new ScoreSync(loadedScore, video);
 
   // Create TabScroller
   tabScroller = new TabScroller(tabRow, {
-    score,
+    score: loadedScore,
     pngUrl: TAB_URL,
     video,
     onChordsChange: handleChordsChange,
