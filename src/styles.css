@@ -105,16 +105,16 @@ body {
 #video-pane {
   padding: 16px;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   min-width: 0;
-  overflow: hidden;
+  height: 100%;
+  min-height: 0;
 }
 
 #video-pane video {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 75vh;
+  height: 100%;
   background: #000;
   object-fit: contain;
 }
@@ -217,13 +217,22 @@ body {
   background: #0f0f0f;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
+  cursor: grab;
+}
+
+.tab-viewport:active {
+  cursor: grabbing;
 }
 
 .tab-strip {
   position: relative;
   will-change: transform;
+  transition: transform 0.25s ease-out;
   /* natural height = image height; width = natural image width */
+}
+
+.tab-strip.dragging {
+  transition: none;
 }
 
 .tab-strip img {
@@ -250,8 +259,9 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(50% - 1px);
+  left: 0; /* JS sets transform */
   width: 2px;
   background: rgba(74, 170, 136, 0.9);
   pointer-events: none;
+  will-change: transform;
 }

@@ -9,8 +9,17 @@ export type TabScrollerOpts = {
 
 /**
  * Renders a horizontally-scrolling tablature strip that stays in sync with
- * video playback. A fixed vertical cursor sits at the visual centre of the
- * viewport; the strip translates left/right under it.
+ * video playback. Songsterr-style page-flip behaviour:
+ *   - The partition stands still; the cursor runs across the visible viewport.
+ *   - When the cursor reaches ~90 % of viewport width, the partition jumps
+ *     left so the cursor restarts at ~10 %.
+ *   - Manual drag pans the partition without seeking.
+ *   - A click (movement < 4 px) seeks the video.
+ *
+ * State:
+ *   viewportOffset — source-pixel position of the strip's left edge.
+ *   strip rendered with transform: translateX(-viewportOffset px).
+ *   cursorScreenX  = targetPixel - viewportOffset.
  *
  * DOM structure injected into `container`:
  *   <div class="tab-viewport">
@@ -46,14 +55,24 @@ export class TabScroller {
   // Track last event index for interpolation
   private lastEventIdx: number = 0;
 
-  // Track last centred pixel for click-to-seek calculation
-  private lastCentredPixel: number = 0;
+  // ── Page-flip scroll state ────────────────────────────────────────────────
+  // viewportOffset: source pixel at the left edge of the viewport
+  private viewportOffset: number;
+
+  // ── Drag state ────────────────────────────────────────────────────────────
+  private isDragging = false;
+  private dragStartX = 0;        // clientX at mouse-down
+  private dragLastX = 0;         // clientX at last mouse-move
+  private dragTotalDeltaX = 0;   // cumulative |delta| for click detection
 
   constructor(container: HTMLElement, opts: TabScrollerOpts) {
     this.score = opts.score;
     this.video = opts.video;
     this.onChordsChange = opts.onChordsChange;
-    this.lastCentredPixel = opts.score.startingPixel;
+
+    // Start viewportOffset so cursor begins near 10% from left
+    // (will be properly set on first RAF tick once viewport width is known)
+    this.viewportOffset = this.score.startingPixel;
 
     // ── Build DOM ──────────────────────────────────────────────────────────────
     this.viewport = document.createElement("div");
@@ -85,8 +104,16 @@ export class TabScroller {
     this.viewport.appendChild(this.cursor);
     container.appendChild(this.viewport);
 
-    // ── Click-to-seek on entire viewport ──────────────────────────────────────
-    this.viewport.addEventListener("click", (e) => this.handleViewportClick(e));
+    // ── Drag + click event handling ───────────────────────────────────────────
+    this.viewport.addEventListener("mousedown", (e) => this.onMouseDown(e));
+
+    // ── Wheel scroll (bonus) ──────────────────────────────────────────────────
+    this.viewport.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      this.viewportOffset = this.clampOffset(this.viewportOffset + delta);
+      this.applyTransforms();
+    }, { passive: false });
 
     // ── Image ready guard ──────────────────────────────────────────────────────
     this.img.decode().then(() => {
@@ -106,9 +133,9 @@ export class TabScroller {
       }
     });
 
-    // ── ResizeObserver: keep cursor centred on resize ─────────────────────────
+    // ── ResizeObserver: re-apply transforms on resize ─────────────────────────
     this.resizeObserver = new ResizeObserver(() => {
-      this.applyTranslate(this.currentPixel());
+      this.applyTransforms();
     });
     this.resizeObserver.observe(this.viewport);
 
@@ -134,8 +161,27 @@ export class TabScroller {
     if (isNaN(currentTime)) return;
 
     const currentFrame = currentTime * this.fps;
-    const pixel = this.interpolatePixel(currentFrame);
-    this.applyTranslate(pixel);
+    const targetPixel = this.interpolatePixel(currentFrame);
+
+    const viewportWidth = this.viewport.clientWidth;
+    if (viewportWidth === 0) return;
+
+    const cursorScreenX = targetPixel - this.viewportOffset;
+
+    // Rule 3: auto-advance — cursor approaching right edge (~90%)
+    if (cursorScreenX > viewportWidth * 0.9) {
+      this.viewportOffset = targetPixel - viewportWidth * 0.1;
+    }
+    // Rule 4: auto-recover — cursor off-screen (after seek back or big drag)
+    else if (cursorScreenX < 0 || cursorScreenX > viewportWidth) {
+      this.viewportOffset = targetPixel - viewportWidth * 0.1;
+    }
+
+    // Rule 5: clamp
+    this.viewportOffset = this.clampOffset(this.viewportOffset);
+
+    // Apply to DOM
+    this.applyTransforms();
 
     // Compute current and next chords
     const { current, next } = this.chordsAt(this.lastEventIdx);
@@ -144,6 +190,30 @@ export class TabScroller {
       this.lastNext = next;
       this.onChordsChange?.(current, next);
     }
+  }
+
+  // ── Clamp viewportOffset ─────────────────────────────────────────────────────
+
+  private clampOffset(offset: number): number {
+    const viewportWidth = this.viewport.clientWidth;
+    const { startingPixel, endingPixel } = this.score;
+    const min = startingPixel - viewportWidth * 0.1;
+    const max = endingPixel - viewportWidth * 0.9;
+    // Allow max < min when strip is shorter than viewport (show whole strip)
+    if (max < min) return min;
+    return Math.max(min, Math.min(max, offset));
+  }
+
+  // ── Apply strip + cursor transforms ─────────────────────────────────────────
+
+  private applyTransforms(): void {
+    if (!this.imgReady || this.fps === null) return;
+
+    const targetPixel = this.interpolatePixel(this.video.currentTime * this.fps);
+    const cursorScreenX = targetPixel - this.viewportOffset;
+
+    this.strip.style.transform = `translateX(${-this.viewportOffset}px)`;
+    this.cursor.style.transform = `translateX(${cursorScreenX}px)`;
   }
 
   // ── Chord computation ────────────────────────────────────────────────────────
@@ -228,35 +298,57 @@ export class TabScroller {
     return Math.max(startingPixel, Math.min(endingPixel, pixel));
   }
 
-  // ── DOM updates ───────────────────────────────────────────────────────────────
+  // ── Drag + click handling ─────────────────────────────────────────────────────
 
-  private currentPixel(): number {
-    if (!this.imgReady || this.fps === null) return this.score.startingPixel;
-    return this.interpolatePixel(this.video.currentTime * (this.fps ?? 0));
-  }
+  private onMouseDown(e: MouseEvent): void {
+    this.isDragging = true;
+    this.dragStartX = e.clientX;
+    this.dragLastX = e.clientX;
+    this.dragTotalDeltaX = 0;
 
-  private applyTranslate(targetPixel: number): void {
-    this.lastCentredPixel = targetPixel;
-    const viewportWidth = this.viewport.clientWidth;
-    const offset = targetPixel - viewportWidth / 2;
-    // Clamp: don't scroll past strip edges
-    const maxOffset = this.score.endingPixel - viewportWidth / 2;
-    const minOffset = this.score.startingPixel - viewportWidth / 2;
-    const clamped = Math.max(minOffset, Math.min(maxOffset, offset));
-    this.strip.style.transform = `translateX(${-clamped}px)`;
+    // Disable CSS transition during drag
+    this.strip.classList.add("dragging");
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaX = ev.clientX - this.dragLastX;
+      this.dragTotalDeltaX += Math.abs(deltaX);
+      this.dragLastX = ev.clientX;
+
+      // Dragging right (positive deltaX) = viewport moves right = earlier content
+      // viewportOffset decreases; dragging left = viewportOffset increases
+      this.viewportOffset = this.clampOffset(this.viewportOffset - deltaX);
+
+      // Update cursor position to reflect new offset (no video seek)
+      this.applyTransforms();
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+
+      this.strip.classList.remove("dragging");
+      this.isDragging = false;
+
+      // Click detection: total movement < 4 px → seek
+      if (this.dragTotalDeltaX < 4) {
+        this.handleClick(ev);
+      }
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   }
 
   // ── Click-to-seek ─────────────────────────────────────────────────────────────
 
-  private handleViewportClick(e: MouseEvent): void {
+  private handleClick(e: MouseEvent): void {
     if (this.fps === null) return;
 
     const rect = this.viewport.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const viewportWidth = this.viewport.clientWidth;
 
-    // Map click position to source pixel on the strip
-    const sourcePixel = this.lastCentredPixel + (clickX - viewportWidth / 2);
+    // Map click X position to source pixel using current viewportOffset
+    const sourcePixel = this.viewportOffset + clickX;
 
     // Clamp to valid strip range
     const { startingPixel, endingPixel, events } = this.score;
