@@ -82,10 +82,17 @@ body {
 #main {
   grid-area: main;
   display: grid;
-  grid-template-columns: 640px 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
   gap: 0;
   min-height: 0;
-  overflow: hidden;
+}
+
+/* Stack vertically on narrow viewports (iPad portrait, phones) */
+@media (max-width: 800px) {
+  #main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
 }
 
 /* ── Video pane ──────────────────────────────────────────────────────── */
@@ -93,13 +100,16 @@ body {
   padding: 16px;
   display: flex;
   align-items: flex-start;
+  min-width: 0;
 }
 
 #video-pane video {
   display: block;
   width: 100%;
-  max-width: 640px;
+  height: auto;
+  max-height: 75vh;
   background: #000;
+  object-fit: contain;
 }
 
 /* ── Side panel ──────────────────────────────────────────────────────── */
@@ -145,6 +155,9 @@ body {
   image-rendering: pixelated;
   border: 1px solid var(--border);
   background: #000;
+  width: 100%;
+  height: auto;
+  max-width: 360px;
 }
 
 #play-sample-btn {

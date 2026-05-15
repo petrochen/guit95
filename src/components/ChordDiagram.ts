@@ -28,24 +28,25 @@ export class ChordDiagram {
     this.img = img;
   }
 
-  /** Draw the chord crop into the canvas at 2× DPR. */
+  /**
+   * Draw the chord crop into the canvas.
+   * Internal pixel buffer = source × DPR for sharpness.
+   * CSS sizing is fluid via styles.css (width 100%, aspect-ratio preserved).
+   */
   render(rect: Rect): void {
     if (!this.img) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const dstW = rect.w;
-    const dstH = rect.h;
 
-    this.canvas.width = dstW * dpr;
-    this.canvas.height = dstH * dpr;
-    this.canvas.style.width = `${dstW}px`;
-    this.canvas.style.height = `${dstH}px`;
+    this.canvas.width = rect.w * dpr;
+    this.canvas.height = rect.h * dpr;
+    this.canvas.style.aspectRatio = `${rect.w} / ${rect.h}`;
 
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.drawImage(
       this.img,
       rect.x, rect.y, rect.w, rect.h,
-      0, 0, dstW, dstH
+      0, 0, rect.w, rect.h
     );
   }
 
