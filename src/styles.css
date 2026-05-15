@@ -437,3 +437,19 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Difficulty hotspot overlays ─────────────────────────────────────── */
+.difficulty-hotspot {
+  position: absolute;
+  z-index: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* ── Chord-button disable during playback ────────────────────────────── */
+.all-chords.playing .chord-btn {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}

@@ -1,10 +1,11 @@
-import type { Score, Event } from "../parsers/sco.js";
+import type { Score, Event, Difficulty } from "../parsers/sco.js";
 
 export type TabScrollerOpts = {
   score: Score;
   pngUrl: string;
   video: HTMLVideoElement;
   onChordsChange?: (current: number | null, next: number | null) => void;
+  onDifficultyClick?: (exercice: number, sound: string) => void;
 };
 
 /**
@@ -39,6 +40,7 @@ export class TabScroller {
   private score: Score;
   private video: HTMLVideoElement;
   private onChordsChange?: (current: number | null, next: number | null) => void;
+  private onDifficultyClick?: (exercice: number, sound: string) => void;
 
   // FPS derived from score metadata + video duration (set after loadedmetadata)
   private fps: number | null = null;
@@ -64,11 +66,13 @@ export class TabScroller {
   private dragStartX = 0;        // clientX at mouse-down
   private dragLastX = 0;         // clientX at last mouse-move
   private dragTotalDeltaX = 0;   // cumulative |delta| for click detection
+  private mousedownTarget: HTMLElement | null = null; // element under mousedown
 
   constructor(container: HTMLElement, opts: TabScrollerOpts) {
     this.score = opts.score;
     this.video = opts.video;
     this.onChordsChange = opts.onChordsChange;
+    this.onDifficultyClick = opts.onDifficultyClick;
 
     // Start viewportOffset so cursor begins near 10% from left
     // (will be properly set on first RAF tick once viewport width is known)
@@ -305,6 +309,7 @@ export class TabScroller {
     this.dragStartX = e.clientX;
     this.dragLastX = e.clientX;
     this.dragTotalDeltaX = 0;
+    this.mousedownTarget = e.target as HTMLElement;
 
     // Disable CSS transition during drag
     this.strip.classList.add("dragging");
@@ -322,17 +327,28 @@ export class TabScroller {
       this.applyTransforms();
     };
 
-    const onMouseUp = (ev: MouseEvent) => {
+    const onMouseUp = (_ev: MouseEvent) => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
 
       this.strip.classList.remove("dragging");
       this.isDragging = false;
 
-      // Click detection: total movement < 4 px → seek
+      // Click detection: total movement < 4 px → dispatch based on target
       if (this.dragTotalDeltaX < 4) {
-        this.handleClick(ev);
+        const hotspot = this.mousedownTarget?.closest(".difficulty-hotspot") as HTMLElement | null;
+        if (hotspot) {
+          // Hotspot click: fire callback, do NOT seek
+          const exercice = parseInt(hotspot.dataset["exercice"] ?? "0", 10);
+          const sound = hotspot.dataset["sound"] ?? "";
+          this.onDifficultyClick?.(exercice, sound);
+        } else {
+          // Normal strip click: seek video
+          this.handleClick(_ev);
+        }
       }
+
+      this.mousedownTarget = null;
     };
 
     document.addEventListener("mousemove", onMouseMove);
@@ -367,6 +383,35 @@ export class TabScroller {
 
     const targetFrame = events[bestIdx]?.frame ?? 0;
     this.video.currentTime = targetFrame / this.fps;
+  }
+
+  // ── Difficulty hotspot overlays ───────────────────────────────────────────────
+
+  /**
+   * Render difficulty hotspot overlays inside the tab strip.
+   * Idempotent: removes any previously-rendered `.difficulty-hotspot` elements
+   * before re-creating them.
+   */
+  setDifficulties(items: Difficulty[]): void {
+    // Remove previous hotspots
+    this.strip.querySelectorAll(".difficulty-hotspot").forEach((el) => el.remove());
+
+    for (const item of items) {
+      const [r, g, b] = item.color;
+      const el = document.createElement("div");
+      el.className = "difficulty-hotspot";
+      el.style.left   = `${item.rect.x}px`;
+      el.style.top    = `${item.rect.y}px`;
+      el.style.width  = `${item.rect.w}px`;
+      el.style.height = `${item.rect.h}px`;
+      el.style.background = `rgba(${r},${g},${b},0.20)`;
+      el.style.border     = `1px solid rgba(${r},${g},${b},0.65)`;
+      el.dataset["exercice"] = String(item.exercice);
+      el.dataset["sound"]    = item.sound;
+      el.title = `Hard passage → exercise ${item.exercice} (click to open)`;
+
+      this.strip.appendChild(el);
+    }
   }
 
   // ── A/B loop markers ────────────────────────────────────────────────────────────

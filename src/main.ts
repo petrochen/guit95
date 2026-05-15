@@ -37,6 +37,9 @@ const chordsById = new Map<number, Chord>();
 let nowChordId: number | null = null;
 let nextChordId: number | null = null;
 
+// Last chord ids delivered by onChordsChange (used for manual NOW override)
+let lastNextChord: number | null = null;
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const video      = document.getElementById("player")      as HTMLVideoElement;
 const nowCanvas  = document.getElementById("now-canvas")  as HTMLCanvasElement;
@@ -214,6 +217,10 @@ loopHereBtn.addEventListener("click", () => {
   loopOn = true;
   updateMarkersUI();
 });
+
+// ── Chord-button disable during playback ──────────────────────────────────────
+video.addEventListener("play",  () => allChords.classList.add("playing"));
+video.addEventListener("pause", () => allChords.classList.remove("playing"));
 
 // ── Loop enforcement — timeupdate (low-frequency check) ────────────────────────
 video.addEventListener("timeupdate", () => {
@@ -497,8 +504,9 @@ function renderPreviews(curId: number | null, nxtId: number | null): void {
 
 // ── Callback from TabScroller ─────────────────────────────────────────────────
 function handleChordsChange(curId: number | null, nxtId: number | null): void {
-  nowChordId  = curId;
-  nextChordId = nxtId;
+  nowChordId    = curId;
+  nextChordId   = nxtId;
+  lastNextChord = nxtId;
   renderPreviews(curId, nxtId);
 }
 
@@ -525,7 +533,13 @@ async function init(): Promise<void> {
     btn.className = "chord-btn";
     btn.textContent = displayChordName(chord.name);
     btn.title = chord.comments || displayChordName(chord.name);
-    btn.addEventListener("click", () => playSample(WAV_BASE + chord.sound));
+    btn.addEventListener("click", () => {
+      playSample(WAV_BASE + chord.sound);
+      // Show this chord in NOW preview; preserve whatever NEXT currently shows.
+      // (Overridden by the next playback tick when video is playing.)
+      nowChordId = chord.id;
+      renderPreviews(chord.id, lastNextChord);
+    });
     allChords.appendChild(btn);
   }
 
@@ -548,7 +562,13 @@ async function init(): Promise<void> {
     pngUrl: TAB_URL,
     video,
     onChordsChange: handleChordsChange,
+    onDifficultyClick: (exercice, sound) => {
+      console.log(`[hotspot] Open exercise ${exercice} (sound: ${sound})`);
+    },
   });
+
+  // Render difficulty hotspots from the SCO data
+  tabScroller.setDifficulties(loadedScore.difficulties);
 
   // Initial marker UI render (clears buttons, disables loop toggle)
   updateMarkersUI();
