@@ -106,6 +106,7 @@ body {
 #video-pane {
   padding: 16px;
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   min-width: 0;
   height: 100%;
@@ -115,7 +116,8 @@ body {
 #video-pane video {
   display: block;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: #000;
   object-fit: contain;
 }
@@ -450,6 +452,97 @@ body {
 /* ── Chord-button disable during playback ────────────────────────────── */
 .all-chords.playing .chord-btn {
   opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* ── Exercise selector in header ─────────────────────────────────────── */
+#exercise-select {
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#exercise-select:hover {
+  background: var(--btn-hover);
+  border-color: #666;
+}
+
+/* ── Exercise pane (in-place, inside #video-pane) ────────────────────── */
+#exercise-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+#exercise-pane[hidden] { display: none; }
+
+.ex-mini-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.ex-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.ex-nav {
+  display: flex;
+  gap: 6px;
+}
+
+#ex-video {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: #000;
+  object-fit: contain;
+  flex: 1;
+}
+
+#ex-tab {
+  display: block;
+  align-self: center;
+  max-width: 100%;
+  max-height: 110px;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+}
+
+#ex-tab[hidden] { display: none; }
+
+.ex-bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.ex-autoplay {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+/* ── Playback controls greyed out during exercise mode ───────────────── */
+body.exercise-mode #playback-controls button,
+body.exercise-mode #playback-controls input[type="range"] {
+  opacity: 0.4;
   pointer-events: none;
   cursor: not-allowed;
 }

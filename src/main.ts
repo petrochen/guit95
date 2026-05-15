@@ -2,6 +2,7 @@ import "./styles.css";
 import { parseIni } from "./parsers/ini.js";
 import { loadChordDb, displayChordName, type Chord } from "./parsers/chd.js";
 import { loadScore } from "./parsers/sco.js";
+import { loadExercise, type ExerciseDef } from "./parsers/exr.js";
 import { ChordDiagram } from "./components/ChordDiagram.js";
 import { TabScroller } from "./components/TabScroller.js";
 import { playSample } from "./audio/sample.js";
@@ -50,6 +51,23 @@ const allChords  = document.getElementById("all-chords")  as HTMLElement;
 const tabRow     = document.getElementById("tab-row")     as HTMLElement;
 const btnVert    = document.getElementById("btn-vert")    as HTMLButtonElement;
 const btnHoriz   = document.getElementById("btn-horiz")  as HTMLButtonElement;
+
+// ── Exercise pane DOM refs ────────────────────────────────────────────────────
+const exercisePane     = document.getElementById("exercise-pane")!;
+const exTitle          = document.getElementById("ex-title")!;
+const exVideo          = document.getElementById("ex-video") as HTMLVideoElement;
+const exTab            = document.getElementById("ex-tab") as HTMLImageElement;
+const exBack           = document.getElementById("ex-back") as HTMLButtonElement;
+const exPrev           = document.getElementById("ex-prev") as HTMLButtonElement;
+const exNext           = document.getElementById("ex-next") as HTMLButtonElement;
+const exVoiceBtn       = document.getElementById("ex-voice") as HTMLButtonElement;
+const exReplayBtn      = document.getElementById("ex-replay") as HTMLButtonElement;
+const exAutoplay       = document.getElementById("ex-autoplay") as HTMLInputElement;
+const exerciseSelect   = document.getElementById("exercise-select") as HTMLSelectElement;
+
+// ── Exercise state ────────────────────────────────────────────────────────────
+let currentExerciseNumber = 0; // 0 = no exercise open
+const voiceAudio = new Audio(); // dedicated audio element for voice playback
 
 // Playback controls
 const speedSlider  = document.getElementById("speed-slider")  as HTMLInputElement;
@@ -247,6 +265,118 @@ function loopRafTick(): void {
 
 loopRafId = requestAnimationFrame(loopRafTick);
 
+// ── Exercise auto-play sequence ───────────────────────────────────────────────
+
+function startExerciseAutoPlay(ex: ExerciseDef): void {
+  if (!exAutoplay.checked) return;
+  voiceAudio.src = ex.voiceFile;
+  voiceAudio.currentTime = 0;
+  voiceAudio.play().catch(() => {
+    // User gesture may be required; fallback to manual buttons
+  });
+  voiceAudio.onended = () => {
+    exVideo.play().catch(() => {});
+  };
+}
+
+// ── Exercise open / close ─────────────────────────────────────────────────────
+
+async function openExercise(num: number): Promise<void> {
+  if (num < 1 || num > 15) return;
+  currentExerciseNumber = num;
+
+  // Pause song video, hide it; show exercise pane
+  video.pause();
+  video.style.display = "none";
+
+  // Stop any previous exercise playback
+  voiceAudio.pause();
+  voiceAudio.onended = null;
+  exVideo.pause();
+
+  // Show exercise pane; grey out playback controls
+  exercisePane.hidden = false;
+  document.body.classList.add("exercise-mode");
+
+  // Update UI labels / nav buttons
+  exTitle.textContent = `Exercise ${num}`;
+  exPrev.disabled = num <= 1;
+  exNext.disabled = num >= 15;
+
+  // Sync dropdown
+  exerciseSelect.value = String(num);
+
+  try {
+    const ex = await loadExercise(`/assets/heyjoe/raw/exercice/${num}/`, num);
+
+    // Set video source
+    exVideo.src = ex.videoFile;
+    exVideo.load();
+
+    // Tab image
+    if (ex.tabImage) {
+      exTab.src = ex.tabImage;
+      exTab.hidden = false;
+    } else {
+      exTab.hidden = true;
+    }
+
+    // Wire manual buttons (fresh per exercise)
+    exVoiceBtn.onclick = () => {
+      voiceAudio.currentTime = 0;
+      voiceAudio.play().catch(() => {});
+    };
+    exReplayBtn.onclick = () => {
+      exVideo.currentTime = 0;
+      exVideo.play().catch(() => {});
+    };
+
+    // Start auto-play sequence: voice → video
+    startExerciseAutoPlay(ex);
+  } catch (err) {
+    console.error(`[exercise] Failed to load exercise ${num}:`, err);
+  }
+}
+
+function closeExercise(): void {
+  // Stop exercise media; release memory
+  voiceAudio.pause();
+  voiceAudio.onended = null;
+  voiceAudio.src = "";
+  exVideo.pause();
+  exVideo.removeAttribute("src");
+  exVideo.load();
+
+  // Hide exercise pane, restore song video; reactivate playback controls
+  exercisePane.hidden = true;
+  video.style.display = "";
+  document.body.classList.remove("exercise-mode");
+
+  // Reset dropdown
+  exerciseSelect.value = "";
+
+  currentExerciseNumber = 0;
+}
+
+// Wire exercise pane buttons
+exBack.addEventListener("click", closeExercise);
+exPrev.addEventListener("click", () => {
+  if (currentExerciseNumber > 1) openExercise(currentExerciseNumber - 1);
+});
+exNext.addEventListener("click", () => {
+  if (currentExerciseNumber < 15) openExercise(currentExerciseNumber + 1);
+});
+
+// Wire exercise selector dropdown
+exerciseSelect.addEventListener("change", () => {
+  const val = exerciseSelect.value;
+  if (val === "") {
+    if (currentExerciseNumber > 0) closeExercise();
+  } else {
+    openExercise(parseInt(val, 10));
+  }
+});
+
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
 /** Returns true when the event target is a text-input-like element. */
@@ -393,6 +523,16 @@ function seekBars(direction: -1 | 1): void {
 function handleKey(e: KeyboardEvent): void {
   if (isTypingTarget(e)) return;
 
+  // Esc closes the exercise view; no other hotkeys work while exercise is open
+  if (e.code === "Escape" && currentExerciseNumber > 0) {
+    closeExercise();
+    e.preventDefault();
+    return;
+  }
+
+  // While exercise view is open, suppress all other song hotkeys
+  if (currentExerciseNumber > 0) return;
+
   switch (e.code) {
     case "Space":
       e.preventDefault();
@@ -512,6 +652,14 @@ function handleChordsChange(curId: number | null, nxtId: number | null): void {
 
 // ── Initialise ────────────────────────────────────────────────────────────────
 async function init(): Promise<void> {
+  // Populate exercise selector dropdown (15 exercises for Hey Joe)
+  for (let i = 1; i <= 15; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `Exercise ${i}`;
+    exerciseSelect.appendChild(opt);
+  }
+
   // Load chord sprite sheet into both diagrams
   await Promise.all([nowDiagram.load(), nextDiagram.load()]);
 
@@ -562,8 +710,8 @@ async function init(): Promise<void> {
     pngUrl: TAB_URL,
     video,
     onChordsChange: handleChordsChange,
-    onDifficultyClick: (exercice, sound) => {
-      console.log(`[hotspot] Open exercise ${exercice} (sound: ${sound})`);
+    onDifficultyClick: (exercice, _sound) => {
+      openExercise(exercice);
     },
   });
 

@@ -10,6 +10,9 @@
     <!-- Header -->
     <header id="header">
       <h1>Guit95 — Hey Joe</h1>
+      <select id="exercise-select">
+        <option value="">Choose exercise…</option>
+      </select>
       <div id="orientation-toggle">
         <button id="btn-vert" class="active">Vert</button>
         <button id="btn-horiz">Horiz</button>
@@ -24,6 +27,25 @@
           src="/assets/heyjoe/hjoe.mp4"
           controls
         ></video>
+        <div id="exercise-pane" hidden>
+          <div class="ex-mini-header">
+            <button id="ex-back" class="chord-btn" type="button">&#8592; Back</button>
+            <span id="ex-title" class="ex-title">Exercise —</span>
+            <div class="ex-nav">
+              <button id="ex-prev" class="chord-btn" type="button">&#8592; Prev</button>
+              <button id="ex-next" class="chord-btn" type="button">Next &#8594;</button>
+            </div>
+          </div>
+          <video id="ex-video" controls></video>
+          <img id="ex-tab" alt="Exercise tab" hidden />
+          <div class="ex-bottom">
+            <button id="ex-voice"  class="chord-btn" type="button">&#9654; Voice</button>
+            <button id="ex-replay" class="chord-btn" type="button">&#9654; Video</button>
+            <label class="ex-autoplay">
+              <input id="ex-autoplay" type="checkbox" checked /> Auto-play
+            </label>
+          </div>
+        </div>
       </div>
 
       <div id="side-panel">
