@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guit95 — Phase 0 sanity check</title>
+    <style>
+      body {
+        font-family: monospace;
+        margin: 2rem;
+        background: #111;
+        color: #ddd;
+      }
+      h1 { margin-bottom: 1rem; }
+      video { display: block; margin-bottom: 1rem; }
+      #info { font-size: 0.9rem; line-height: 1.8; }
+      .pass { color: #4f4; font-weight: bold; }
+      .fail { color: #f44; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h1>Guit95 — Phase 0 sanity check</h1>
+    <video
+      id="player"
+      src="/assets/heyjoe/hjoe.mp4"
+      width="640"
+      controls
+    ></video>
+    <div id="info">
+      <div>Asset: <code>/assets/heyjoe/hjoe.mp4</code></div>
+      <div id="test-result">INI parser self-test: <span id="status">…</span></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
