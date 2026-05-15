@@ -94,7 +94,7 @@ for SLUG in "${SLUGS[@]}"; do
   # palette BMPs via <img> or Canvas. Convert once to PNG (sips is macOS built-in).
   CHORDS_RAW="$RAW_DEST/chords"
   if [[ -d "$CHORDS_RAW" ]]; then
-    echo "==> $SLUG: bmp→png"
+    echo "==> $SLUG: bmp→png (chords)"
     for BMP in "$CHORDS_RAW"/*.bmp; do
       [[ -f "$BMP" ]] || continue
       PNG="${BMP%.bmp}.png"
@@ -105,6 +105,26 @@ for SLUG in "${SLUGS[@]}"; do
         echo "    (skipped — $(basename "$PNG") up-to-date)"
       fi
     done
+  fi
+
+  # ── 4. BMP → PNG conversion for tab strip ──────────────────────────────────
+  # heyj-b2.bmp (~14000 px wide, 8-bit palette) — convert to PNG for reliable
+  # cross-browser rendering. PNG is also much smaller (~82 KB vs 390 KB).
+  PLAY_RAW="$RAW_DEST/play"
+  if [[ -d "$PLAY_RAW" ]]; then
+    echo "==> $SLUG: bmp→png (tab strip)"
+    TAB_BMP="$PLAY_RAW/heyj-b2.bmp"
+    TAB_PNG="$PLAY_RAW/heyj-b2.png"
+    if [[ -f "$TAB_BMP" ]]; then
+      if [[ ! -f "$TAB_PNG" || "$TAB_PNG" -ot "$TAB_BMP" ]]; then
+        /usr/bin/sips -s format png "$TAB_BMP" --out "$TAB_PNG" >/dev/null
+        SIZE=$(du -k "$TAB_PNG" | cut -f1)
+        echo "    converted: heyj-b2.bmp → heyj-b2.png (${SIZE} KB)"
+      else
+        SIZE=$(du -k "$TAB_PNG" | cut -f1)
+        echo "    (skipped — heyj-b2.png up-to-date, ${SIZE} KB)"
+      fi
+    fi
   fi
 
 done

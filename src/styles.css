@@ -29,10 +29,11 @@ body {
   color: var(--text);
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   grid-template-areas:
     "header"
     "main"
+    "tabstrip"
     "chords";
 }
 
@@ -175,6 +176,68 @@ body {
   background: var(--btn-hover);
 }
 
+/* ── Tab strip row ───────────────────────────────────────────────────── */
+#tab-row {
+  grid-area: tabstrip;
+  min-width: 0;
+  width: 100%;
+}
+
+/* ── Tab scroller ────────────────────────────────────────────────────── */
+.tab-viewport {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  background: #0f0f0f;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-strip {
+  position: relative;
+  will-change: transform;
+  /* natural height = image height; width = natural image width */
+}
+
+.tab-strip img {
+  display: block;
+  image-rendering: pixelated;
+  /* Keep natural pixel dimensions; no forced width/height. */
+  height: auto;
+  width: auto;
+  user-select: none;
+  pointer-events: none;
+}
+
+.bar-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+}
+
+/* Wider invisible hit area so bars are easy to click */
+.bar-marker::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: 0;
+  bottom: 0;
+}
+
+.tab-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: rgba(74, 170, 136, 0.9);
+  pointer-events: none;
+}
+
 /* ── Chord button row ────────────────────────────────────────────────── */
 #chord-row {
   grid-area: chords;
@@ -210,4 +273,10 @@ body {
   color: var(--btn-active-text);
   border-color: var(--accent-dim);
   font-weight: 700;
+}
+
+/* Auto-active: set by playback sync. Outline colour set via inline style. */
+.chord-btn.auto-active {
+  outline-offset: 2px;
+  transition: outline 0.05s linear;
 }
