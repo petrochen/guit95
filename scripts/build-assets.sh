@@ -89,6 +89,24 @@ for SLUG in "${SLUGS[@]}"; do
 
   echo "    -> $RAW_DEST"
 
+  # ── 3. BMP → PNG conversion for chord sprite sheet ────────────────────────
+  # heyjoe2.bmp is an 8-bit palette BMP; Safari does not reliably render
+  # palette BMPs via <img> or Canvas. Convert once to PNG (sips is macOS built-in).
+  CHORDS_RAW="$RAW_DEST/chords"
+  if [[ -d "$CHORDS_RAW" ]]; then
+    echo "==> $SLUG: bmp→png"
+    for BMP in "$CHORDS_RAW"/*.bmp; do
+      [[ -f "$BMP" ]] || continue
+      PNG="${BMP%.bmp}.png"
+      if [[ ! -f "$PNG" || "$PNG" -ot "$BMP" ]]; then
+        /usr/bin/sips -s format png "$BMP" --out "$PNG" >/dev/null
+        echo "    converted: $(basename "$BMP") → $(basename "$PNG")"
+      else
+        echo "    (skipped — $(basename "$PNG") up-to-date)"
+      fi
+    done
+  fi
+
 done
 
 ELAPSED=$(( SECONDS - START_TIME ))

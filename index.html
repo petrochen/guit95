@@ -3,33 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Guit95 — Phase 0 sanity check</title>
-    <style>
-      body {
-        font-family: monospace;
-        margin: 2rem;
-        background: #111;
-        color: #ddd;
-      }
-      h1 { margin-bottom: 1rem; }
-      video { display: block; margin-bottom: 1rem; }
-      #info { font-size: 0.9rem; line-height: 1.8; }
-      .pass { color: #4f4; font-weight: bold; }
-      .fail { color: #f44; font-weight: bold; }
-    </style>
+    <title>Guit95 — Hey Joe</title>
   </head>
   <body>
-    <h1>Guit95 — Phase 0 sanity check</h1>
-    <video
-      id="player"
-      src="/assets/heyjoe/hjoe.mp4"
-      width="640"
-      controls
-    ></video>
-    <div id="info">
-      <div>Asset: <code>/assets/heyjoe/hjoe.mp4</code></div>
-      <div id="test-result">INI parser self-test: <span id="status">…</span></div>
+
+    <!-- Header -->
+    <header id="header">
+      <h1>Guit95 — Hey Joe</h1>
+      <div id="orientation-toggle">
+        <button id="btn-vert" class="active">Vert</button>
+        <button id="btn-horiz">Horiz</button>
+      </div>
+    </header>
+
+    <!-- Main: video left, panel right -->
+    <main id="main">
+      <div id="video-pane">
+        <video
+          id="player"
+          src="/assets/heyjoe/hjoe.mp4"
+          controls
+          width="640"
+        ></video>
+      </div>
+
+      <div id="side-panel">
+        <p id="panel-placeholder">Click a chord</p>
+
+        <div id="chord-info">
+          <div id="chord-name-display"></div>
+          <div id="chord-comment"></div>
+          <canvas id="diagram-canvas"></canvas>
+          <button id="play-sample-btn">&#9654; Play sample</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Chord row -->
+    <div id="chord-row">
+      <!-- Buttons injected by main.ts -->
     </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
