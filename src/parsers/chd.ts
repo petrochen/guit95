@@ -2,6 +2,24 @@ import { loadIni } from "./load.js";
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
+// ── Chord display name helper ─────────────────────────────────────────────────
+
+const SUBS = "₀₁₂₃₄₅₆₇₈₉";
+function toSubscript(s: string): string {
+  return s.replace(/\d/g, (d) => SUBS[+d]!);
+}
+
+/**
+ * Convert a raw CHD chord name to a modern display name.
+ * "Go" → "G", "C_3" → "C₃", "E_7" → "E₇", others unchanged.
+ */
+export function displayChordName(name: string): string {
+  if (name === "Go") return "G";
+  const m = /^([A-G][#b]?)_(\d+)$/.exec(name);
+  if (m) return m[1]! + toSubscript(m[2]!);
+  return name;
+}
+
 export type Chord = {
   id: number;
   name: string;

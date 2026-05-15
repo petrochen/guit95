@@ -1,6 +1,6 @@
 import "./styles.css";
 import { parseIni } from "./parsers/ini.js";
-import { loadChordDb, type Chord } from "./parsers/chd.js";
+import { loadChordDb, displayChordName, type Chord } from "./parsers/chd.js";
 import { loadScore } from "./parsers/sco.js";
 import { ChordDiagram } from "./components/ChordDiagram.js";
 import { TabScroller } from "./components/TabScroller.js";
@@ -147,6 +147,15 @@ function updateMarkersUI(): void {
   tabScroller?.setLoop({ a: aPixel, b: bPixel, on: loopOn });
 }
 
+/** If both A and B are set and A > B, swap them so A is always <= B. */
+function normaliseAB(): void {
+  if (aPixel !== null && bPixel !== null && aPixel > bPixel) {
+    const tmp = aPixel;
+    aPixel = bPixel;
+    bPixel = tmp;
+  }
+}
+
 function setAtCurrent(which: "a" | "b"): void {
   if (!sync) return;
   const currentPixel = sync.timeToPixel(video.currentTime);
@@ -157,6 +166,7 @@ function setAtCurrent(which: "a" | "b"): void {
   } else {
     bPixel = nearest.pixel;
   }
+  normaliseAB();
   updateMarkersUI();
 }
 
@@ -164,6 +174,7 @@ function clearAB(): void {
   aPixel = null;
   bPixel = null;
   loopOn = false;
+  normaliseAB();
   updateMarkersUI();
 }
 
@@ -199,6 +210,7 @@ loopHereBtn.addEventListener("click", () => {
 
   aPixel = nearest.pixel;
   bPixel = nextBarPx;
+  normaliseAB();
   loopOn = true;
   updateMarkersUI();
 });
@@ -267,6 +279,7 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
       const nb = sync.nearestBar(currentPixel);
       if (!nb) return;
       aPixel = nb.pixel;
+      normaliseAB();
       updateMarkersUI();
       return;
     }
@@ -292,7 +305,7 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
     // Clamp at startingPixel
     candidate = Math.max(score.startingPixel, candidate);
 
-    // Must remain < bPixel (if B is set)
+    // Shrink guard: must remain < bPixel (if B is set)
     if (bPixel !== null && candidate >= bPixel) return;
 
     aPixel = candidate;
@@ -306,6 +319,7 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
       const nb = sync.nearestBar(currentPixel);
       if (!nb) return;
       bPixel = nb.pixel;
+      normaliseAB();
       updateMarkersUI();
       return;
     }
@@ -331,12 +345,13 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
     // Clamp at endingPixel
     candidate = Math.min(score.endingPixel, candidate);
 
-    // Must remain > aPixel (if A is set)
+    // Shrink guard: must remain > aPixel (if A is set)
     if (aPixel !== null && candidate <= aPixel) return;
 
     bPixel = candidate;
   }
 
+  normaliseAB();
   updateMarkersUI();
 }
 
@@ -457,7 +472,7 @@ function renderPreviews(curId: number | null, nxtId: number | null): void {
   // NOW
   const nowChord = curId !== null ? chordsById.get(curId) ?? null : null;
   if (nowChord) {
-    nowName.textContent = `${nowChord.name}${nowChord.comments ? ` (${nowChord.comments})` : ""}`;
+    nowName.textContent = displayChordName(nowChord.name);
     const rect = orientation === "vert" ? nowChord.picRect : nowChord.picRectUS;
     nowDiagram.render(rect);
     const [r, g, b] = nowChord.rgbHighlight;
@@ -471,7 +486,7 @@ function renderPreviews(curId: number | null, nxtId: number | null): void {
   // NEXT
   const nextChord = nxtId !== null ? chordsById.get(nxtId) ?? null : null;
   if (nextChord) {
-    nextName.textContent = `${nextChord.name}${nextChord.comments ? ` (${nextChord.comments})` : ""}`;
+    nextName.textContent = displayChordName(nextChord.name);
     const rect = orientation === "vert" ? nextChord.picRect : nextChord.picRectUS;
     nextDiagram.render(rect);
   } else {
@@ -508,8 +523,8 @@ async function init(): Promise<void> {
   for (const chord of chords) {
     const btn = document.createElement("button");
     btn.className = "chord-btn";
-    btn.textContent = chord.name;
-    btn.title = chord.comments || chord.name;
+    btn.textContent = displayChordName(chord.name);
+    btn.title = chord.comments || displayChordName(chord.name);
     btn.addEventListener("click", () => playSample(WAV_BASE + chord.sound));
     allChords.appendChild(btn);
   }
