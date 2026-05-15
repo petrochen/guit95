@@ -369,6 +369,39 @@ export class TabScroller {
     this.video.currentTime = targetFrame / this.fps;
   }
 
+  // ── A/B loop markers ────────────────────────────────────────────────────────────
+
+  /**
+   * (Re)render A and B marker lines and the loop-region overlay inside the strip.
+   * Idempotent: removes any previously-rendered markers before re-rendering.
+   */
+  setLoop(opts: { a: number | null; b: number | null; on: boolean }): void {
+    // Remove previous markers and region
+    this.strip.querySelectorAll(".ab-marker, .loop-region").forEach((el) => el.remove());
+
+    if (opts.a !== null) {
+      const markerA = document.createElement("div");
+      markerA.className = "ab-marker a";
+      markerA.style.left = `${opts.a}px`;
+      this.strip.appendChild(markerA);
+    }
+
+    if (opts.b !== null) {
+      const markerB = document.createElement("div");
+      markerB.className = "ab-marker b";
+      markerB.style.left = `${opts.b}px`;
+      this.strip.appendChild(markerB);
+    }
+
+    if (opts.a !== null && opts.b !== null && opts.a < opts.b) {
+      const region = document.createElement("div");
+      region.className = "loop-region";
+      region.style.left = `${opts.a}px`;
+      region.style.width = `${opts.b - opts.a}px`;
+      this.strip.appendChild(region);
+    }
+  }
+
   // ── Cleanup ────────────────────────────────────────────────────────────────────
 
   dispose(): void {

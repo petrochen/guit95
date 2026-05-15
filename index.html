@@ -45,6 +45,21 @@
       </div>
     </main>
 
+    <!-- Playback controls: speed + A/B loop -->
+    <div id="playback-controls">
+      <label class="speed-control">
+        <span class="ctrl-label">Speed</span>
+        <input id="speed-slider" type="range" min="0.25" max="1.5" step="0.05" value="1" />
+        <span id="speed-value" class="speed-value">1.00×</span>
+      </label>
+      <div class="loop-controls">
+        <button id="ab-a" type="button" class="ab-btn">A —</button>
+        <button id="ab-b" type="button" class="ab-btn">B —</button>
+        <button id="loop-toggle" type="button" class="loop-btn" disabled>⟲ Loop</button>
+        <button id="loop-clear" type="button" class="loop-clear" title="Clear A/B">✕</button>
+      </div>
+    </div>
+
     <!-- Tab scroller -->
     <div id="tab-row">
       <!-- TabScroller injected by main.ts -->
