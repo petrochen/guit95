@@ -27,93 +27,85 @@ const ORIENTATION_KEY = "chord-orientation";
 type Orientation = "vert" | "horiz";
 let orientation: Orientation =
   (localStorage.getItem(ORIENTATION_KEY) as Orientation | null) ?? "vert";
-let activeChord: Chord | null = null;
 
 // Chord lookup by id (populated after CHD loads)
-const chordsById = new Map<number, { chord: Chord; btn: HTMLButtonElement }>();
-let autoActiveBtn: HTMLButtonElement | null = null;
+const chordsById = new Map<number, Chord>();
+
+// Currently displayed chords (so orientation toggle can re-render)
+let nowChordId: number | null = null;
+let nextChordId: number | null = null;
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const video = document.getElementById("player") as HTMLVideoElement;
-const canvas = document.getElementById("diagram-canvas") as HTMLCanvasElement;
-const panelPlaceholder = document.getElementById("panel-placeholder") as HTMLElement;
-const chordInfo = document.getElementById("chord-info") as HTMLElement;
-const chordNameDisplay = document.getElementById("chord-name-display") as HTMLElement;
-const chordComment = document.getElementById("chord-comment") as HTMLElement;
-const playSampleBtn = document.getElementById("play-sample-btn") as HTMLButtonElement;
-const chordRow = document.getElementById("chord-row") as HTMLElement;
-const tabRow = document.getElementById("tab-row") as HTMLElement;
-const btnVert = document.getElementById("btn-vert") as HTMLButtonElement;
-const btnHoriz = document.getElementById("btn-horiz") as HTMLButtonElement;
+const video      = document.getElementById("player")     as HTMLVideoElement;
+const nowCanvas  = document.getElementById("now-canvas") as HTMLCanvasElement;
+const nextCanvas = document.getElementById("next-canvas") as HTMLCanvasElement;
+const nowName    = document.getElementById("now-name")   as HTMLElement;
+const nextName   = document.getElementById("next-name")  as HTMLElement;
+const allChords  = document.getElementById("all-chords") as HTMLElement;
+const tabRow     = document.getElementById("tab-row")    as HTMLElement;
+const btnVert    = document.getElementById("btn-vert")   as HTMLButtonElement;
+const btnHoriz   = document.getElementById("btn-horiz")  as HTMLButtonElement;
 
-// ── Diagram renderer ──────────────────────────────────────────────────────────
-const diagram = new ChordDiagram(canvas, IMG_URL);
+// ── Diagram renderers ─────────────────────────────────────────────────────────
+const nowDiagram  = new ChordDiagram(nowCanvas,  IMG_URL);
+const nextDiagram = new ChordDiagram(nextCanvas, IMG_URL);
 
+// ── Orientation ───────────────────────────────────────────────────────────────
 function updateOrientationButtons(): void {
   btnVert.classList.toggle("active", orientation === "vert");
   btnHoriz.classList.toggle("active", orientation === "horiz");
-}
-
-function renderActiveChord(): void {
-  if (!activeChord) return;
-  const rect = orientation === "vert" ? activeChord.picRect : activeChord.picRectUS;
-  diagram.render(rect);
-}
-
-function selectChord(chord: Chord, btn: HTMLButtonElement, allBtns: HTMLButtonElement[]): void {
-  activeChord = chord;
-
-  allBtns.forEach((b) => b.classList.remove("active"));
-  btn.classList.add("active");
-
-  panelPlaceholder.style.display = "none";
-  chordInfo.classList.add("visible");
-  chordNameDisplay.textContent = `${chord.name}${chord.comments ? ` (${chord.comments})` : ""}`;
-  chordComment.textContent = chord.comments;
-
-  renderActiveChord();
-  playSample(WAV_BASE + chord.sound);
 }
 
 function setOrientation(o: Orientation): void {
   orientation = o;
   localStorage.setItem(ORIENTATION_KEY, o);
   updateOrientationButtons();
-  renderActiveChord();
+  // Re-render both previews with new orientation
+  renderPreviews(nowChordId, nextChordId);
 }
 
-btnVert.addEventListener("click", () => setOrientation("vert"));
+btnVert.addEventListener("click",  () => setOrientation("vert"));
 btnHoriz.addEventListener("click", () => setOrientation("horiz"));
 
-playSampleBtn.addEventListener("click", () => {
-  if (activeChord) playSample(WAV_BASE + activeChord.sound);
-});
-
-// ── Active chord auto-highlight (called by TabScroller) ───────────────────────
-function handleActiveChordChange(chordId: number | null): void {
-  // Remove previous auto-active
-  if (autoActiveBtn) {
-    autoActiveBtn.classList.remove("auto-active");
-    autoActiveBtn.style.outline = "";
-    autoActiveBtn = null;
+// ── NOW / NEXT preview rendering ──────────────────────────────────────────────
+function renderPreviews(curId: number | null, nxtId: number | null): void {
+  // NOW
+  const nowChord = curId !== null ? chordsById.get(curId) ?? null : null;
+  if (nowChord) {
+    nowName.textContent = `${nowChord.name}${nowChord.comments ? ` (${nowChord.comments})` : ""}`;
+    const rect = orientation === "vert" ? nowChord.picRect : nowChord.picRectUS;
+    nowDiagram.render(rect);
+    const [r, g, b] = nowChord.rgbHighlight;
+    nowCanvas.style.borderColor = `rgb(${r},${g},${b})`;
+  } else {
+    nowName.textContent = "—";
+    nowDiagram.clear();
+    nowCanvas.style.borderColor = "";
   }
 
-  if (chordId === null) return;
+  // NEXT
+  const nextChord = nxtId !== null ? chordsById.get(nxtId) ?? null : null;
+  if (nextChord) {
+    nextName.textContent = `${nextChord.name}${nextChord.comments ? ` (${nextChord.comments})` : ""}`;
+    const rect = orientation === "vert" ? nextChord.picRect : nextChord.picRectUS;
+    nextDiagram.render(rect);
+  } else {
+    nextName.textContent = "—";
+    nextDiagram.clear();
+  }
+}
 
-  const entry = chordsById.get(chordId);
-  if (!entry) return;
-
-  const { chord, btn } = entry;
-  const [r, g, b] = chord.rgbHighlight;
-  btn.classList.add("auto-active");
-  btn.style.outline = `2px solid rgb(${r},${g},${b})`;
-  autoActiveBtn = btn;
+// ── Callback from TabScroller ─────────────────────────────────────────────────
+function handleChordsChange(curId: number | null, nxtId: number | null): void {
+  nowChordId  = curId;
+  nextChordId = nxtId;
+  renderPreviews(curId, nxtId);
 }
 
 // ── Initialise ────────────────────────────────────────────────────────────────
 async function init(): Promise<void> {
-  // Load chord image
-  await diagram.load();
+  // Load chord sprite sheet into both diagrams
+  await Promise.all([nowDiagram.load(), nextDiagram.load()]);
 
   // Load chord database
   const db = await loadChordDb(CHD_URL);
@@ -122,19 +114,19 @@ async function init(): Promise<void> {
   console.assert(chords.length === 11, `CHD parser self-test: expected 11 chords, got ${chords.length}`);
   console.log(`CHD parser self-test: ${chords.length} chords loaded`);
 
-  // Build chord buttons
-  const allBtns: HTMLButtonElement[] = [];
+  // Populate lookup map
+  for (const chord of chords) {
+    chordsById.set(chord.id, chord);
+  }
+
+  // Build all-chords buttons (play sample only — no latching)
   for (const chord of chords) {
     const btn = document.createElement("button");
     btn.className = "chord-btn";
     btn.textContent = chord.name;
     btn.title = chord.comments || chord.name;
-    btn.addEventListener("click", () => selectChord(chord, btn, allBtns));
-    chordRow.appendChild(btn);
-    allBtns.push(btn);
-
-    // Register for auto-highlight lookup by chord.id
-    chordsById.set(chord.id, { chord, btn });
+    btn.addEventListener("click", () => playSample(WAV_BASE + chord.sound));
+    allChords.appendChild(btn);
   }
 
   updateOrientationButtons();
@@ -151,7 +143,7 @@ async function init(): Promise<void> {
     score,
     pngUrl: TAB_URL,
     video,
-    onActiveChordChange: handleActiveChordChange,
+    onChordsChange: handleChordsChange,
   });
 }
 

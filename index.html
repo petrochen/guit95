@@ -27,25 +27,27 @@
       </div>
 
       <div id="side-panel">
-        <p id="panel-placeholder">Click a chord</p>
-
-        <div id="chord-info">
-          <div id="chord-name-display"></div>
-          <div id="chord-comment"></div>
-          <canvas id="diagram-canvas"></canvas>
-          <button id="play-sample-btn">&#9654; Play sample</button>
+        <div class="now-next">
+          <div class="preview now">
+            <div class="preview-label">Now</div>
+            <div class="preview-name" id="now-name">—</div>
+            <canvas id="now-canvas"></canvas>
+          </div>
+          <div class="preview next">
+            <div class="preview-label">Next</div>
+            <div class="preview-name" id="next-name">—</div>
+            <canvas id="next-canvas"></canvas>
+          </div>
+        </div>
+        <div class="all-chords" id="all-chords">
+          <!-- 11 buttons injected by main.ts -->
         </div>
       </div>
     </main>
 
-    <!-- Tab scroller (between video row and chord row) -->
+    <!-- Tab scroller -->
     <div id="tab-row">
       <!-- TabScroller injected by main.ts -->
-    </div>
-
-    <!-- Chord row -->
-    <div id="chord-row">
-      <!-- Buttons injected by main.ts -->
     </div>
 
     <script type="module" src="/src/main.ts"></script>

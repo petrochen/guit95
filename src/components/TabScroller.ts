@@ -4,7 +4,7 @@ export type TabScrollerOpts = {
   score: Score;
   pngUrl: string;
   video: HTMLVideoElement;
-  onActiveChordChange?: (chordId: number | null) => void;
+  onChordsChange?: (current: number | null, next: number | null) => void;
 };
 
 /**
@@ -29,7 +29,7 @@ export class TabScroller {
 
   private score: Score;
   private video: HTMLVideoElement;
-  private onActiveChordChange?: (chordId: number | null) => void;
+  private onChordsChange?: (current: number | null, next: number | null) => void;
 
   // FPS derived from score metadata + video duration (set after loadedmetadata)
   private fps: number | null = null;
@@ -40,15 +40,20 @@ export class TabScroller {
   private rafId: number | null = null;
   private resizeObserver: ResizeObserver;
 
-  // Track last active chord to avoid redundant callbacks
-  private lastChordId: number | null = null;
+  // Track last current/next chord to avoid redundant callbacks
+  private lastCurrent: number | null = null;
+  private lastNext: number | null = null;
   // Track last event index for interpolation
   private lastEventIdx: number = 0;
+
+  // Track last centred pixel for click-to-seek calculation
+  private lastCentredPixel: number = 0;
 
   constructor(container: HTMLElement, opts: TabScrollerOpts) {
     this.score = opts.score;
     this.video = opts.video;
-    this.onActiveChordChange = opts.onActiveChordChange;
+    this.onChordsChange = opts.onChordsChange;
+    this.lastCentredPixel = opts.score.startingPixel;
 
     // ── Build DOM ──────────────────────────────────────────────────────────────
     this.viewport = document.createElement("div");
@@ -68,19 +73,20 @@ export class TabScroller {
 
     this.strip.appendChild(this.img);
 
-    // ── Bar markers ────────────────────────────────────────────────────────────
+    // ── Bar markers (visual only — no click handlers) ──────────────────────────
     for (const barPx of this.score.bars) {
       const marker = document.createElement("div");
       marker.className = "bar-marker";
       marker.style.left = `${barPx}px`;
-      // Click → seek video to the nearest event for this bar
-      marker.addEventListener("click", () => this.seekToBar(barPx));
       this.strip.appendChild(marker);
     }
 
     this.viewport.appendChild(this.strip);
     this.viewport.appendChild(this.cursor);
     container.appendChild(this.viewport);
+
+    // ── Click-to-seek on entire viewport ──────────────────────────────────────
+    this.viewport.addEventListener("click", (e) => this.handleViewportClick(e));
 
     // ── Image ready guard ──────────────────────────────────────────────────────
     this.img.decode().then(() => {
@@ -131,12 +137,39 @@ export class TabScroller {
     const pixel = this.interpolatePixel(currentFrame);
     this.applyTranslate(pixel);
 
-    // Determine active chord
-    const chordId = this.activeChordAt(this.lastEventIdx);
-    if (chordId !== this.lastChordId) {
-      this.lastChordId = chordId;
-      this.onActiveChordChange?.(chordId);
+    // Compute current and next chords
+    const { current, next } = this.chordsAt(this.lastEventIdx);
+    if (current !== this.lastCurrent || next !== this.lastNext) {
+      this.lastCurrent = current;
+      this.lastNext = next;
+      this.onChordsChange?.(current, next);
     }
+  }
+
+  // ── Chord computation ────────────────────────────────────────────────────────
+
+  private chordsAt(eventIdx: number): { current: number | null; next: number | null } {
+    const events = this.score.events;
+
+    // Walk backwards to find current chord
+    let current: number | null = null;
+    for (let i = eventIdx; i >= 0; i--) {
+      if (events[i]?.chord !== undefined) {
+        current = events[i]!.chord!;
+        break;
+      }
+    }
+
+    // Walk forwards to find next chord that differs from current
+    let next: number | null = null;
+    for (let i = eventIdx + 1; i < events.length; i++) {
+      if (events[i]?.chord !== undefined && events[i]!.chord !== current) {
+        next = events[i]!.chord!;
+        break;
+      }
+    }
+
+    return { current, next };
   }
 
   // ── Binary search + interpolation ────────────────────────────────────────────
@@ -167,7 +200,7 @@ export class TabScroller {
    * Interpolate pixel position between the event at `idx` and the next one.
    */
   private interpolatePixel(currentFrame: number): number {
-    const { events, startingPixel, endingPixel, startingFrame, endingFrame } = this.score;
+    const { events, startingPixel, endingPixel } = this.score;
 
     const idx = this.binarySearch(currentFrame);
     this.lastEventIdx = idx < 0 ? 0 : idx;
@@ -195,19 +228,6 @@ export class TabScroller {
     return Math.max(startingPixel, Math.min(endingPixel, pixel));
   }
 
-  /**
-   * Walk backwards from eventIdx to find the most recent event with chord set.
-   */
-  private activeChordAt(eventIdx: number): number | null {
-    const events = this.score.events;
-    for (let i = eventIdx; i >= 0; i--) {
-      if (events[i]?.chord !== undefined) {
-        return events[i]!.chord!;
-      }
-    }
-    return null;
-  }
-
   // ── DOM updates ───────────────────────────────────────────────────────────────
 
   private currentPixel(): number {
@@ -216,6 +236,7 @@ export class TabScroller {
   }
 
   private applyTranslate(targetPixel: number): void {
+    this.lastCentredPixel = targetPixel;
     const viewportWidth = this.viewport.clientWidth;
     const offset = targetPixel - viewportWidth / 2;
     // Clamp: don't scroll past strip edges
@@ -225,17 +246,27 @@ export class TabScroller {
     this.strip.style.transform = `translateX(${-clamped}px)`;
   }
 
-  // ── Bar click → seek ──────────────────────────────────────────────────────────
+  // ── Click-to-seek ─────────────────────────────────────────────────────────────
 
-  private seekToBar(barPx: number): void {
+  private handleViewportClick(e: MouseEvent): void {
     if (this.fps === null) return;
 
-    // Find event with pixel closest to barPx
-    const events = this.score.events;
+    const rect = this.viewport.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const viewportWidth = this.viewport.clientWidth;
+
+    // Map click position to source pixel on the strip
+    const sourcePixel = this.lastCentredPixel + (clickX - viewportWidth / 2);
+
+    // Clamp to valid strip range
+    const { startingPixel, endingPixel, events } = this.score;
+    const clampedPixel = Math.max(startingPixel, Math.min(endingPixel, sourcePixel));
+
+    // Find event with pixel closest to clampedPixel
     let bestIdx = 0;
     let bestDist = Infinity;
     for (let i = 0; i < events.length; i++) {
-      const dist = Math.abs(events[i]!.pixel - barPx);
+      const dist = Math.abs(events[i]!.pixel - clampedPixel);
       if (dist < bestDist) {
         bestDist = dist;
         bestIdx = i;
