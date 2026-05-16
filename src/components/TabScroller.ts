@@ -114,12 +114,25 @@ export class TabScroller {
     this.viewport.style.touchAction = "none";
     this.viewport.addEventListener("pointerdown", (e) => this.onPointerDown(e));
 
-    // ── Wheel scroll (bonus) ──────────────────────────────────────────────────
+    // ── Wheel scroll (incl. trackpad two-finger swipe) ────────────────────────
+    // Disable CSS transition for the duration of the wheel gesture (otherwise
+    // each event triggers a 250ms ease animation, which fights with the next
+    // event 16ms later → visible jitter). Re-enable shortly after the user stops.
+    let wheelStopTimer: number | null = null;
     this.viewport.addEventListener("wheel", (e) => {
       e.preventDefault();
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      // Prefer horizontal axis if user actually swiped horizontally; otherwise
+      // use vertical. Picking max-magnitude per-event causes axis-flapping on
+      // diagonal swipes. Sticking to one axis keeps motion smooth.
+      const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      this.strip.classList.add("dragging");
       this.viewportOffset = this.clampOffset(this.viewportOffset + delta);
       this.applyTransforms();
+      if (wheelStopTimer !== null) clearTimeout(wheelStopTimer);
+      wheelStopTimer = window.setTimeout(() => {
+        this.strip.classList.remove("dragging");
+        wheelStopTimer = null;
+      }, 120);
     }, { passive: false });
 
     // ── Image ready guard ──────────────────────────────────────────────────────
