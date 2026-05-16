@@ -1,13 +1,24 @@
 import { loadIni } from "./load.js";
 
 /**
+ * One playback segment of an exercise (voice intro + demo video).
+ * Most exercises have multiple — e.g. "intro" + "slow demo" + "tempo demo".
+ */
+export type ExerciseSegment = {
+  voiceFile: string;    // resolved URL to .wav
+  videoFile: string;    // resolved URL to .mp4
+};
+
+/**
  * Parsed data from an EXR exercise file.
  */
 export type ExerciseDef = {
-  number: number;       // 1..15
-  voiceFile: string;    // resolved relative URL to .wav (lowercased, %s expanded)
-  videoFile: string;    // resolved relative URL to .mp4 (converted from .avi)
-  tabImage: string | null; // resolved relative URL to .png (converted from .bmp), or null
+  number: number;       // 1..15 (per song) or 1..9 (toolkit)
+  segments: ExerciseSegment[]; // 1..N segments; first is the "intro"
+  // Convenience aliases pointing to segments[0] for backward compat:
+  voiceFile: string;
+  videoFile: string;
+  tabImage: string | null; // resolved relative URL to .png, or null
 };
 
 /**
@@ -36,28 +47,31 @@ export async function loadExercise(folderUrl: string, number: number): Promise<E
     throw err;
   }
 
-  let videoFilename: string | null = null;
-  let voiceFilename: string | null = null;
-  let tabBmpFilename: string | null = null;
+  // Collect ALL unique aviopen= and playsnd= values, in source order.
+  // Then zip them: segment N = (videoN, voiceN). Most exercises pair 1:1.
+  const videos: string[] = [];
+  const voices: string[] = [];
+  const tabBmps: string[] = [];
 
-  // Walk all sections looking for the first aviopen= and first playsnd=
   for (const section of ini.sections) {
     for (const entry of section.entries) {
       const key = entry.key.toLowerCase();
       const val = entry.value.trim();
 
-      if (!videoFilename && key === "aviopen") {
-        videoFilename = val.toLowerCase();
+      if (key === "aviopen") {
+        const v = val.toLowerCase();
+        if (!videos.includes(v)) videos.push(v);
       }
-
-      if (!voiceFilename && key === "playsnd") {
-        // Expand %s macro and lowercase
-        voiceFilename = expandMacro(val).toLowerCase();
+      if (key === "playsnd") {
+        const v = expandMacro(val).toLowerCase();
+        if (!voices.includes(v)) voices.push(v);
       }
-
-      // Also check global [picture] sections for tab image (bitmap=sco*.bmp)
     }
   }
+
+  let videoFilename: string | null = videos[0] ?? null;
+  let voiceFilename: string | null = voices[0] ?? null;
+  let tabBmpFilename: string | null = null;
 
   // Walk [picture] sections for bitmap=sco*.bmp
   for (const section of ini.sections) {
@@ -101,5 +115,19 @@ export async function loadExercise(folderUrl: string, number: number): Promise<E
     ? base + tabBmpFilename.replace(/\.bmp$/i, ".png")
     : null;
 
-  return { number, voiceFile, videoFile, tabImage };
+  // Build segments array: zip videos + voices by index. If one list is longer,
+  // pair what we can; remaining items are dropped (rare edge case).
+  const len = Math.max(videos.length, voices.length, 1);
+  const segments: ExerciseSegment[] = [];
+  for (let i = 0; i < len; i++) {
+    const v = (videos[i] ?? videoFilename).replace(/\.avi$/i, ".mp4");
+    const aRaw = voices[i] ?? voiceFilename;
+    const a = aRaw.replace(/\\/g, "/").split("/").pop() ?? aRaw;
+    segments.push({ videoFile: base + v, voiceFile: base + a });
+  }
+  if (segments.length === 0) {
+    segments.push({ videoFile, voiceFile });
+  }
+
+  return { number, segments, voiceFile, videoFile, tabImage };
 }

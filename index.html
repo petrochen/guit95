@@ -13,7 +13,26 @@
       <div class="song-grid">
         <!-- 7 cards injected by main.ts renderHome() -->
       </div>
+      <div id="toolkit-view" hidden>
+        <div class="toolkit-header">
+          <button id="toolkit-back" type="button" class="chord-btn">&#8592; Library</button>
+          <h2>Toolkit — technique exercises</h2>
+          <span id="toolkit-pageinfo"></span>
+        </div>
+        <video id="toolkit-video" controls></video>
+        <div class="ex-bottom">
+          <button id="toolkit-voice"  type="button" class="chord-btn">&#9654; Voice</button>
+          <button id="toolkit-replay" type="button" class="chord-btn">&#9654; Video</button>
+          <label class="ex-autoplay"><input id="toolkit-autoplay" type="checkbox" checked /> Auto-play</label>
+        </div>
+        <div class="toolkit-grid" id="toolkit-grid">
+          <!-- 9 buttons injected -->
+        </div>
+      </div>
+
       <footer class="home-footer">
+        <button id="home-tuner-btn" type="button" class="chord-btn">&#127928; Tuner</button>
+        <button id="home-toolkit-btn" type="button" class="chord-btn">&#128295; Toolkit (10 technique exercises)</button>
         <button id="home-about-btn" type="button" class="chord-btn">About / Credits</button>
         <a href="https://github.com/petrochen/guit95" target="_blank" class="home-footer-link">source on github</a>
       </footer>
@@ -51,6 +70,9 @@
             </div>
           </div>
           <video id="ex-video" controls></video>
+          <div class="ex-segments" id="ex-segments">
+            <!-- segment buttons injected dynamically: [Part 1] [Part 2] [Part 3] -->
+          </div>
           <div class="ex-bottom">
             <button id="ex-voice"  class="chord-btn" type="button">&#9654; Voice</button>
             <button id="ex-replay" class="chord-btn" type="button">&#9654; Video</button>
@@ -108,6 +130,37 @@
       <!-- TabScroller injects .tab-viewport here -->
       <div id="exercise-tab-row" hidden>
         <img id="exercise-tab-img" alt="Exercise tab" />
+      </div>
+    </div>
+
+    <!-- Phase 9c: Tuner overlay (6 reference notes, no FFT) -->
+    <div id="tuner-overlay" hidden>
+      <div class="tuner-panel">
+        <div class="tuner-header">
+          <span>Tuner — reference notes</span>
+          <button id="tuner-close" type="button" class="chord-btn">Close</button>
+        </div>
+        <div class="tuner-strings">
+          <button class="tuner-string" data-note="e1" data-freq="82.4">
+            <div class="ts-label">E</div><div class="ts-sub">low · 82.4 Hz</div>
+          </button>
+          <button class="tuner-string" data-note="a" data-freq="110.0">
+            <div class="ts-label">A</div><div class="ts-sub">110 Hz</div>
+          </button>
+          <button class="tuner-string" data-note="d" data-freq="146.8">
+            <div class="ts-label">D</div><div class="ts-sub">146.8 Hz</div>
+          </button>
+          <button class="tuner-string" data-note="g" data-freq="196.0">
+            <div class="ts-label">G</div><div class="ts-sub">196 Hz</div>
+          </button>
+          <button class="tuner-string" data-note="b" data-freq="246.9">
+            <div class="ts-label">B</div><div class="ts-sub">246.9 Hz</div>
+          </button>
+          <button class="tuner-string" data-note="e2" data-freq="329.6">
+            <div class="ts-label">E</div><div class="ts-sub">high · 329.6 Hz</div>
+          </button>
+        </div>
+        <p class="tuner-hint">Click any string to play the reference tone (samples from original CD).</p>
       </div>
     </div>
 

@@ -90,6 +90,25 @@ const aboutPageInfo  = document.getElementById("about-pageinfo")! as HTMLElement
 const aboutPrev      = document.getElementById("about-prev")!    as HTMLButtonElement;
 const aboutNext      = document.getElementById("about-next")!    as HTMLButtonElement;
 const homeAboutBtn   = document.getElementById("home-about-btn")! as HTMLButtonElement;
+const homeTunerBtn   = document.getElementById("home-tuner-btn")! as HTMLButtonElement;
+const homeToolkitBtn = document.getElementById("home-toolkit-btn")! as HTMLButtonElement;
+
+// Tuner overlay
+const tunerOverlay  = document.getElementById("tuner-overlay")!;
+const tunerClose    = document.getElementById("tuner-close")! as HTMLButtonElement;
+
+// Toolkit view
+const toolkitView      = document.getElementById("toolkit-view")!;
+const toolkitBack      = document.getElementById("toolkit-back")! as HTMLButtonElement;
+const toolkitVideo     = document.getElementById("toolkit-video")! as HTMLVideoElement;
+const toolkitVoiceBtn  = document.getElementById("toolkit-voice")! as HTMLButtonElement;
+const toolkitReplayBtn = document.getElementById("toolkit-replay")! as HTMLButtonElement;
+const toolkitAutoplay  = document.getElementById("toolkit-autoplay")! as HTMLInputElement;
+const toolkitGrid      = document.getElementById("toolkit-grid")! as HTMLElement;
+const toolkitPageInfo  = document.getElementById("toolkit-pageinfo")! as HTMLElement;
+
+// Exercise segments
+const exSegmentsRow = document.getElementById("ex-segments")! as HTMLElement;
 
 let lyricsPage = 1;   // 1-based
 let aboutPage  = 1;   // 1-based, 1..6
@@ -446,9 +465,6 @@ async function openExerciseByDisplay(displayIdx: number): Promise<void> {
   try {
     const ex = await loadExercise(`${currentMeta.rawDir}exercice/${cdNum}/`, cdNum);
 
-    exVideo.src = ex.videoFile;
-    exVideo.load();
-
     if (ex.tabImage) {
       exerciseTabImg.src = ex.tabImage;
       exerciseTabRow.classList.remove("no-image");
@@ -457,29 +473,59 @@ async function openExerciseByDisplay(displayIdx: number): Promise<void> {
       exerciseTabRow.classList.add("no-image");
     }
 
+    // Phase 9c: multi-segment support — render Part 1/2/3 buttons + start first
+    currentExerciseSegments = ex.segments;
+    renderSegmentButtons(ex.segments);
+
     exVoiceBtn.onclick = () => {
+      const seg = currentExerciseSegments[currentExerciseSegIdx];
+      if (!seg) return;
+      voiceAudio.src = seg.voiceFile;
       voiceAudio.currentTime = 0;
       voiceAudio.play().catch(() => {});
     };
     exReplayBtn.onclick = () => {
+      const seg = currentExerciseSegments[currentExerciseSegIdx];
+      if (!seg) return;
+      exVideo.src = seg.videoFile;
       exVideo.currentTime = 0;
       exVideo.play().catch(() => {});
     };
 
-    startExerciseAutoPlay(ex);
+    // Start the first segment (auto-play sequence: voice → video → next segment if autoplay).
+    playExerciseSegment(ex.segments, 0);
   } catch (err) {
     console.error(`[exercise] Failed to load exercise ${displayIdx} (CD: ${cdNum}):`, err);
   }
 }
 
-function startExerciseAutoPlay(ex: ExerciseDef): void {
-  if (!exAutoplay.checked) return;
-  voiceAudio.src = ex.voiceFile;
-  voiceAudio.currentTime = 0;
-  voiceAudio.play().catch(() => {});
-  voiceAudio.onended = () => {
-    exVideo.play().catch(() => {});
-  };
+let currentExerciseSegments: { voiceFile: string; videoFile: string }[] = [];
+let currentExerciseSegIdx = 0;
+
+function playExerciseSegment(segments: { voiceFile: string; videoFile: string }[], idx: number): void {
+  if (idx < 0 || idx >= segments.length) return;
+  currentExerciseSegments = segments;
+  currentExerciseSegIdx = idx;
+  updateExSegmentButtonsActive(idx);
+  const seg = segments[idx]!;
+  exVideo.src = seg.videoFile;
+  exVideo.load();
+  if (exAutoplay.checked) {
+    voiceAudio.src = seg.voiceFile;
+    voiceAudio.currentTime = 0;
+    voiceAudio.onended = () => {
+      exVideo.play().catch(() => {});
+    };
+    exVideo.onended = () => {
+      // Chain to next segment if any and autoplay still on
+      if (exAutoplay.checked && idx + 1 < segments.length) {
+        playExerciseSegment(segments, idx + 1);
+      }
+    };
+    voiceAudio.play().catch(() => {});
+  } else {
+    voiceAudio.src = seg.voiceFile;
+  }
 }
 
 function closeExercise(): void {
@@ -1114,6 +1160,151 @@ aboutNext.addEventListener("click", () => { aboutPage++; showAboutPage(); });
 aboutOverlay.addEventListener("click", (e) => {
   if (e.target === aboutOverlay) closeAbout();
 });
+
+// ── Phase 9c: Tuner overlay (reference notes from CD) ───────────────────────
+const tunerAudio = new Audio();
+function openTuner(): void { tunerOverlay.removeAttribute("hidden"); }
+function closeTuner(): void {
+  tunerOverlay.setAttribute("hidden", "");
+  tunerAudio.pause();
+}
+function playReferenceNote(note: string): void {
+  tunerAudio.src = `/tuner/${note}.wav`;
+  tunerAudio.currentTime = 0;
+  void tunerAudio.play();
+}
+homeTunerBtn.addEventListener("click", openTuner);
+tunerClose.addEventListener("click", closeTuner);
+tunerOverlay.addEventListener("click", (e) => {
+  if (e.target === tunerOverlay) closeTuner();
+  const btn = (e.target as HTMLElement).closest(".tuner-string") as HTMLElement | null;
+  if (btn) {
+    const note = btn.getAttribute("data-note");
+    if (note) playReferenceNote(note);
+  }
+});
+
+// ── Phase 9c: Toolkit view (10 generic technique exercises) ─────────────────
+// Toolkit has folders 1..9 (folder 0 was the entry list — same idea as song
+// exercises). Each has segment videos like 1-1.mp4 etc. + rex1-1.wav voice.
+const TOOLKIT_COUNT = 9;
+let toolkitCurrent = 0;            // 1..9, 0 = none open
+let toolkitSegments: { video: string; voice: string }[] = [];
+let toolkitSegIdx = 0;
+const toolkitVoiceAudio = new Audio();
+toolkitVoiceAudio.addEventListener("play",  () => toolkitVideo.pause());
+toolkitVideo.addEventListener     ("play",  () => toolkitVoiceAudio.pause());
+
+function openToolkit(): void {
+  toolkitView.removeAttribute("hidden");
+  homeView.setAttribute("hidden", "");
+  // Build grid if not built
+  if (toolkitGrid.children.length === 0) {
+    for (let i = 1; i <= TOOLKIT_COUNT; i++) {
+      const btn = document.createElement("button");
+      btn.className = "toolkit-btn";
+      btn.textContent = `Exercise ${i}`;
+      btn.dataset["n"] = String(i);
+      btn.addEventListener("click", () => loadToolkitExercise(i));
+      toolkitGrid.appendChild(btn);
+    }
+  }
+  if (toolkitCurrent === 0) loadToolkitExercise(1);
+}
+function closeToolkit(): void {
+  toolkitView.setAttribute("hidden", "");
+  homeView.removeAttribute("hidden");
+  toolkitVideo.pause();
+  toolkitVoiceAudio.pause();
+}
+function loadToolkitExercise(n: number): void {
+  if (n < 1 || n > TOOLKIT_COUNT) return;
+  toolkitCurrent = n;
+  toolkitSegments = listToolkitSegments(n);
+  toolkitSegIdx = 0;
+  toolkitPageInfo.textContent = `Exercise ${n} of ${TOOLKIT_COUNT} · ${toolkitSegments.length} segment${toolkitSegments.length === 1 ? "" : "s"}`;
+  // Update grid active
+  toolkitGrid.querySelectorAll(".toolkit-btn").forEach((b) => {
+    b.classList.toggle("active", (b as HTMLElement).dataset["n"] === String(n));
+  });
+  startToolkitSegment(0);
+}
+// Toolkit segment patterns vary per exercise (CD numbering irregular):
+//   1-6: rex<N>-1.wav + rex<N>-2.wav → 2 segments  (<N>-1.mp4, <N>-2.mp4)
+//   7:   rex7-0.wav + 7-1.mp4 → 1 segment (single title voice + single video)
+//   8:   complex (8-1a/b/c) — fallback to single segment using 8-2 (smaller demo)
+//   9:   rex9-1 + rex9-2 → 2 segments
+const TOOLKIT_SEGMENT_PLAN: Record<number, { video: string; voice: string }[]> = {
+  1: [{video:"/toolkit/1/1-1.mp4", voice:"/toolkit/1/rex1-1.wav"}, {video:"/toolkit/1/1-2.mp4", voice:"/toolkit/1/rex1-2.wav"}],
+  2: [{video:"/toolkit/2/2-1.mp4", voice:"/toolkit/2/rex2-1.wav"}, {video:"/toolkit/2/2-2.mp4", voice:"/toolkit/2/rex2-2.wav"}],
+  3: [{video:"/toolkit/3/3-1.mp4", voice:"/toolkit/3/rex3-1.wav"}, {video:"/toolkit/3/3-2.mp4", voice:"/toolkit/3/rex3-2.wav"}],
+  4: [{video:"/toolkit/4/4-1.mp4", voice:"/toolkit/4/rex4-1.wav"}, {video:"/toolkit/4/4-2.mp4", voice:"/toolkit/4/rex4-2.wav"}],
+  5: [{video:"/toolkit/5/5-1.mp4", voice:"/toolkit/5/rex5-1.wav"}, {video:"/toolkit/5/5-2.mp4", voice:"/toolkit/5/rex5-2.wav"}],
+  6: [{video:"/toolkit/6/6-1.mp4", voice:"/toolkit/6/rex6-1.wav"}, {video:"/toolkit/6/6-2.mp4", voice:"/toolkit/6/rex6-2.wav"}],
+  7: [{video:"/toolkit/7/7-1.mp4", voice:"/toolkit/7/rex7-0.wav"}],
+  8: [{video:"/toolkit/8/8-2.mp4", voice:"/toolkit/8/rex8-2.wav"}],
+  9: [{video:"/toolkit/9/9-1.mp4", voice:"/toolkit/9/rex9-1.wav"}, {video:"/toolkit/9/9-2.mp4", voice:"/toolkit/9/rex9-2.wav"}],
+};
+function listToolkitSegments(n: number): { video: string; voice: string }[] {
+  return TOOLKIT_SEGMENT_PLAN[n] ?? [];
+}
+function startToolkitSegment(idx: number): void {
+  if (idx < 0 || idx >= toolkitSegments.length) return;
+  toolkitSegIdx = idx;
+  const seg = toolkitSegments[idx]!;
+  // Play voice intro first; on ended, play video.
+  if (toolkitAutoplay.checked) {
+    toolkitVoiceAudio.src = seg.voice;
+    toolkitVoiceAudio.onended = () => { toolkitVideo.src = seg.video; void toolkitVideo.play(); };
+    toolkitVideo.onended = () => { startToolkitSegment(idx + 1); }; // chain
+    void toolkitVoiceAudio.play().catch(() => {});
+  } else {
+    toolkitVoiceAudio.src = seg.voice;
+    toolkitVideo.src = seg.video;
+  }
+}
+
+homeToolkitBtn.addEventListener("click", openToolkit);
+toolkitBack.addEventListener("click", closeToolkit);
+toolkitVoiceBtn.addEventListener("click", () => {
+  if (toolkitSegments[toolkitSegIdx]) {
+    toolkitVoiceAudio.src = toolkitSegments[toolkitSegIdx]!.voice;
+    toolkitVoiceAudio.currentTime = 0;
+    void toolkitVoiceAudio.play();
+  }
+});
+toolkitReplayBtn.addEventListener("click", () => {
+  if (toolkitSegments[toolkitSegIdx]) {
+    toolkitVideo.src = toolkitSegments[toolkitSegIdx]!.video;
+    toolkitVideo.currentTime = 0;
+    void toolkitVideo.play();
+  }
+});
+
+// ── Phase 9c: Multi-segment exercise playback ──────────────────────────────
+// Replaces the Phase 4b single-segment auto-play. After last segment ends,
+// nothing autoplays next. User can revisit via segment buttons.
+function renderSegmentButtons(segments: Array<{ voiceFile: string; videoFile: string }>): void {
+  exSegmentsRow.innerHTML = "";
+  if (segments.length <= 1) {
+    exSegmentsRow.setAttribute("hidden", "");
+    return;
+  }
+  exSegmentsRow.removeAttribute("hidden");
+  segments.forEach((_seg, i) => {
+    const btn = document.createElement("button");
+    btn.className = "ex-segment-btn";
+    btn.textContent = `Part ${i + 1}`;
+    btn.dataset["i"] = String(i);
+    btn.addEventListener("click", () => playExerciseSegment(segments, i));
+    exSegmentsRow.appendChild(btn);
+  });
+}
+function updateExSegmentButtonsActive(idx: number): void {
+  exSegmentsRow.querySelectorAll(".ex-segment-btn").forEach((b) => {
+    b.classList.toggle("active", (b as HTMLElement).dataset["i"] === String(idx));
+  });
+}
 
 // ── Feature 5: Settings panel ─────────────────────────────────────────────────
 

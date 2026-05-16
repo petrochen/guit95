@@ -207,6 +207,110 @@ body {
   color: var(--accent);
 }
 
+/* ── Phase 9c: Tuner overlay ─────────────────────────────────────────── */
+#tuner-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.82);
+  z-index: 1000;
+  padding: 24px;
+}
+#tuner-overlay[hidden] { display: none; }
+.tuner-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 420px;
+  max-width: 600px;
+  color: var(--text);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.tuner-header {
+  display: flex; align-items: center; gap: 12px;
+  font-weight: 600;
+}
+.tuner-header span { flex: 1; }
+.tuner-strings {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.tuner-string {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 18px 8px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+}
+.tuner-string:hover { background: var(--btn-hover); border-color: #888; }
+.tuner-string:active { background: var(--accent); color: #111; }
+.tuner-string .ts-label { font-size: 1.8rem; font-weight: 700; }
+.tuner-string .ts-sub { font-size: 0.75rem; color: var(--text-dim); }
+.tuner-hint { font-size: 0.8rem; color: var(--text-dim); margin: 0; text-align: center; }
+
+/* ── Phase 9c: Toolkit view ──────────────────────────────────────────── */
+#toolkit-view {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 500;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+#toolkit-view[hidden] { display: none; }
+.toolkit-header {
+  display: flex; align-items: center; gap: 12px;
+}
+.toolkit-header h2 { flex: 1; font-size: 1.1rem; font-weight: 600; margin: 0; }
+#toolkit-video {
+  width: 100%; max-height: 60vh; background: #000;
+}
+.toolkit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.toolkit-btn {
+  padding: 12px 8px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.toolkit-btn:hover { background: var(--btn-hover); border-color: #888; }
+.toolkit-btn.active {
+  background: var(--accent); color: #111; border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* ── Phase 9c: Exercise segments row ─────────────────────────────────── */
+.ex-segments {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.ex-segments[hidden] { display: none; }
+.ex-segment-btn {
+  padding: 4px 10px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ex-segment-btn.active {
+  background: var(--accent);
+  color: #111;
+  border-color: var(--accent);
+}
+
 .song-card-text {
   flex: 1 1 auto;
   display: flex;
