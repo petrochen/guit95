@@ -13,22 +13,6 @@
       <div class="song-grid">
         <!-- 7 cards injected by main.ts renderHome() -->
       </div>
-      <div id="toolkit-view" hidden>
-        <div class="toolkit-header">
-          <button id="toolkit-back" type="button" class="chord-btn">&#8592; Library</button>
-          <h2>Toolkit — technique exercises</h2>
-          <span id="toolkit-pageinfo"></span>
-        </div>
-        <video id="toolkit-video" controls></video>
-        <div class="ex-bottom">
-          <button id="toolkit-voice"  type="button" class="chord-btn">&#9654; Voice</button>
-          <button id="toolkit-replay" type="button" class="chord-btn">&#9654; Video</button>
-          <label class="ex-autoplay"><input id="toolkit-autoplay" type="checkbox" checked /> Auto-play</label>
-        </div>
-        <div class="toolkit-grid" id="toolkit-grid">
-          <!-- 9 buttons injected -->
-        </div>
-      </div>
 
       <footer class="home-footer">
         <button id="home-tuner-btn" type="button" class="chord-btn">&#127928; Tuner</button>
@@ -36,6 +20,24 @@
         <button id="home-about-btn" type="button" class="chord-btn">About / Credits</button>
         <a href="https://github.com/petrochen/guit95" target="_blank" class="home-footer-link">source on github</a>
       </footer>
+    </div>
+
+    <!-- Toolkit view — sibling of home so hiding home doesn't hide toolkit -->
+    <div id="toolkit-view" hidden>
+      <div class="toolkit-header">
+        <button id="toolkit-back" type="button" class="chord-btn">&#8592; Library</button>
+        <h2>Toolkit — technique exercises</h2>
+        <span id="toolkit-pageinfo"></span>
+      </div>
+      <video id="toolkit-video" controls></video>
+      <div class="ex-bottom">
+        <button id="toolkit-voice"  type="button" class="chord-btn">&#9654; Voice</button>
+        <button id="toolkit-replay" type="button" class="chord-btn">&#9654; Video</button>
+        <label class="ex-autoplay"><input id="toolkit-autoplay" type="checkbox" checked /> Auto-play</label>
+      </div>
+      <div class="toolkit-grid" id="toolkit-grid">
+        <!-- 9 buttons injected -->
+      </div>
     </div>
 
     <!-- Player header — shown when a song is active -->
