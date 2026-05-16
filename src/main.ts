@@ -182,10 +182,16 @@ function applyVolume(v: number): void {
   settingDefaultVolVal.textContent = Math.round(v * 100) + "%";
 }
 
-// Initialise slider once
+// Initialise sliders once on page load
 speedSlider.value = String(initialRate);
 speedValue.textContent = initialRate.toFixed(2) + "×";
 updatePresetActive(initialRate);
+
+// Feature 5: sync settings panel sliders to stored values on startup
+settingDefaultSpeed.value = String(initialRate);
+settingDefaultSpeedVal.textContent = initialRate.toFixed(2) + "×";
+settingDefaultVolume.value = String(initialVolume);
+settingDefaultVolVal.textContent = Math.round(initialVolume * 100) + "%";
 
 speedSlider.addEventListener("input", () => applyRate(parseFloat(speedSlider.value)));
 preset50.addEventListener("click",  () => applyRate(0.5));
