@@ -13,6 +13,7 @@ export type SongMeta = {
   tabImageUrl: string;    // /assets/<slug>/raw/play/<scorefile>.png
   exerciseCount: number;  // real exercises only (folder 0 excluded)
   jingleUrl: string;      // /assets/jingles/<file>.wav
+  artistImageUrl: string; // /artists/<slug>.png — portrait cropped from CD title screen
 };
 
 // Order matches the original CD title screen (TITLE1.TIT page 1 then TITLE2.TIT page 2).
@@ -29,6 +30,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/heyjoe/raw/play/heyj-b2.png",
     exerciseCount: 16,
     jingleUrl: "/assets/jingles/jgl-jh01.wav",
+    artistImageUrl: "/artists/heyjoe.png",
   },
   {
     slug: "woman",
@@ -42,6 +44,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/woman/raw/play/nwnc-b2.png",
     exerciseCount: 13,
     jingleUrl: "/assets/jingles/jgl-bm01.wav",
+    artistImageUrl: "/artists/woman.png",
   },
   {
     slug: "life",
@@ -55,6 +58,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/life/raw/play/lbtdbar3.png",
     exerciseCount: 7,
     jingleUrl: "/assets/jingles/jgl-rv01.wav",
+    artistImageUrl: "/artists/life.png",
   },
   {
     slug: "sweet",
@@ -68,6 +72,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/sweet/raw/play/sha-b4.png",
     exerciseCount: 12,
     jingleUrl: "/assets/jingles/jgl-ls01.wav",
+    artistImageUrl: "/artists/sweet.png",
   },
   {
     slug: "dust",
@@ -81,6 +86,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/dust/raw/play/ditw-b2.png",
     exerciseCount: 9,
     jingleUrl: "/assets/jingles/jgl-ks01.wav",
+    artistImageUrl: "/artists/dust.png",
   },
   {
     slug: "blowin",
@@ -94,6 +100,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/blowin/raw/play/bitw-b2.png",
     exerciseCount: 7,
     jingleUrl: "/assets/jingles/jgl-bd01.wav",
+    artistImageUrl: "/artists/blowin.png",
   },
   {
     slug: "wild",
@@ -107,6 +114,7 @@ export const SONGS: SongMeta[] = [
     tabImageUrl: "/assets/wild/raw/play/ww-b3.png",
     exerciseCount: 10,
     jingleUrl: "/assets/jingles/jgl-cs01.wav",
+    artistImageUrl: "/artists/wild.png",
   },
 ];
 

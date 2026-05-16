@@ -65,9 +65,10 @@ body {
 
 .song-card {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 18px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
   background: var(--btn-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -75,11 +76,32 @@ body {
   color: var(--text);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .song-card:hover {
   background: var(--btn-hover);
-  border-color: #666;
+  border-color: #888;
+  transform: translateY(-2px);
+}
+
+.song-card-portrait {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  image-rendering: pixelated;
+  background: #000;
+}
+
+.song-card-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .song-card-title {

@@ -833,10 +833,13 @@ function renderHome(): void {
       ? `<div class="song-card-progress">${doneCount} / ${song.exerciseCount} done</div>`
       : "";
     btn.innerHTML = `
-      <div class="song-card-title">${song.title}</div>
-      <div class="song-card-artist">${song.artist}</div>
-      <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
-      ${progressLine}
+      <img class="song-card-portrait" src="${song.artistImageUrl}" alt="${song.artist}" loading="lazy" />
+      <div class="song-card-text">
+        <div class="song-card-title">${song.title}</div>
+        <div class="song-card-artist">${song.artist}</div>
+        <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
+        ${progressLine}
+      </div>
     `;
     btn.addEventListener("mouseenter", () => {
       playJingle(song.jingleUrl);
