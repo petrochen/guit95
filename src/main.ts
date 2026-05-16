@@ -8,6 +8,10 @@ import { TabScroller } from "./components/TabScroller.js";
 import { playSample } from "./audio/sample.js";
 import { ScoreSync } from "./playback/sync.js";
 import { SONGS, getSongBySlug, type SongMeta } from "./songs.js";
+import {
+  getPosition, setPosition,
+  getCompleted, toggleCompleted, resetProgress,
+} from "./state/progress.js";
 
 // ── INI parser self-test (Phase 0, kept) ─────────────────────────────────────
 const _r = parseIni("BackBmp=foo.bmp\n[chord]\nname=C\nname=D\n");
@@ -20,7 +24,8 @@ console.log("INI parser self-test:", _r.global["BackBmp"] === "foo.bmp" ? "PASS"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ORIENTATION_KEY = "chord-orientation";
-const SPEED_KEY = "playback-rate";
+const SPEED_KEY = "default-speed";      // Feature 5: was "playback-rate"
+const VOLUME_KEY = "default-volume";
 
 // ── DOM refs (always present) ─────────────────────────────────────────────────
 const homeView      = document.getElementById("home-view")!;
@@ -52,7 +57,20 @@ const exNext           = document.getElementById("ex-next")!  as HTMLButtonEleme
 const exVoiceBtn       = document.getElementById("ex-voice")! as HTMLButtonElement;
 const exReplayBtn      = document.getElementById("ex-replay")! as HTMLButtonElement;
 const exAutoplay       = document.getElementById("ex-autoplay")! as HTMLInputElement;
+const exDoneBtn        = document.getElementById("ex-done")! as HTMLButtonElement;
 const exerciseSelect   = document.getElementById("exercise-select")! as HTMLSelectElement;
+
+// ── Help + Settings overlay refs ─────────────────────────────────────────────
+const helpOverlay    = document.getElementById("help-overlay")!;
+const helpClose      = document.getElementById("help-close")!  as HTMLButtonElement;
+const settingsOverlay       = document.getElementById("settings-overlay")!;
+const settingClose          = document.getElementById("setting-close")! as HTMLButtonElement;
+const settingDefaultSpeed   = document.getElementById("setting-default-speed")! as HTMLInputElement;
+const settingDefaultSpeedVal = document.getElementById("setting-default-speed-value")! as HTMLElement;
+const settingDefaultVolume  = document.getElementById("setting-default-volume")! as HTMLInputElement;
+const settingDefaultVolVal  = document.getElementById("setting-default-volume-value")! as HTMLElement;
+const settingResetProgress  = document.getElementById("setting-reset-progress")! as HTMLButtonElement;
+const settingsBtn           = document.getElementById("settings-btn")! as HTMLButtonElement;
 
 // ── Speed controls ─────────────────────────────────────────────────────────────
 const speedSlider  = document.getElementById("speed-slider")!  as HTMLInputElement;
@@ -73,6 +91,33 @@ let orientation: Orientation =
 
 const savedRate = parseFloat(localStorage.getItem(SPEED_KEY) ?? "1");
 const initialRate = isFinite(savedRate) && savedRate >= 0.25 && savedRate <= 1.5 ? savedRate : 1;
+
+const savedVolume = parseFloat(localStorage.getItem(VOLUME_KEY) ?? "0.8");
+const initialVolume = isFinite(savedVolume) && savedVolume >= 0 && savedVolume <= 1 ? savedVolume : 0.8;
+
+// ── Position save interval ────────────────────────────────────────────────────
+let positionSaveIntervalId: ReturnType<typeof setInterval> | null = null;
+
+function saveSongPosition(): void {
+  if (!currentMeta) return;
+  // Skip while exercise is open — preserve last song time, not stale value
+  if (currentExerciseDisplayIdx !== null) return;
+  if (!isNaN(video.currentTime) && video.currentTime > 0) {
+    setPosition(currentMeta.slug, video.currentTime);
+  }
+}
+
+function startPositionSave(): void {
+  stopPositionSave();
+  positionSaveIntervalId = setInterval(saveSongPosition, 3000);
+}
+
+function stopPositionSave(): void {
+  if (positionSaveIntervalId !== null) {
+    clearInterval(positionSaveIntervalId);
+    positionSaveIntervalId = null;
+  }
+}
 
 // ── Per-song mutable state ────────────────────────────────────────────────────
 // Reset on each song load.
@@ -124,6 +169,17 @@ function applyRate(r: number): void {
   speedValue.textContent = r.toFixed(2) + "×";
   localStorage.setItem(SPEED_KEY, String(r));
   updatePresetActive(r);
+  // Keep settings slider in sync
+  settingDefaultSpeed.value = String(r);
+  settingDefaultSpeedVal.textContent = r.toFixed(2) + "×";
+}
+
+function applyVolume(v: number): void {
+  video.volume = v;
+  localStorage.setItem(VOLUME_KEY, String(v));
+  // Keep settings slider in sync
+  settingDefaultVolume.value = String(v);
+  settingDefaultVolVal.textContent = Math.round(v * 100) + "%";
 }
 
 // Initialise slider once
@@ -338,6 +394,13 @@ async function openExerciseByDisplay(displayIdx: number): Promise<void> {
 
   exerciseSelect.value = String(displayIdx);
 
+  // Feature 4: update "Mark done" button state
+  if (currentMeta) {
+    const done = getCompleted(currentMeta.slug).has(displayIdx);
+    exDoneBtn.classList.toggle("done", done);
+    exDoneBtn.textContent = done ? "✓ Done" : "✓ Mark done";
+  }
+
   try {
     const ex = await loadExercise(`${currentMeta.rawDir}exercice/${cdNum}/`, cdNum);
 
@@ -400,6 +463,17 @@ function closeExercise(): void {
 }
 
 exBack.addEventListener("click", closeExercise);
+
+// Feature 4: mark exercise done
+exDoneBtn.addEventListener("click", () => {
+  if (!currentMeta || currentExerciseDisplayIdx === null) return;
+  const nowDone = toggleCompleted(currentMeta.slug, currentExerciseDisplayIdx);
+  exDoneBtn.classList.toggle("done", nowDone);
+  exDoneBtn.textContent = nowDone ? "✓ Done" : "✓ Mark done";
+  // Refresh dropdown to show/hide ✓
+  refreshExerciseDropdown();
+});
+
 exPrev.addEventListener("click", () => {
   if (currentExerciseDisplayIdx === null) return;
   openExerciseByDisplay(Math.max(1, currentExerciseDisplayIdx - 1));
@@ -517,16 +591,47 @@ function seekBars(direction: -1 | 1): void {
   video.currentTime = sync.pixelToTime(targetPx);
 }
 
+// ── Help overlay ─────────────────────────────────────────────────────────────
+
+function openHelp(): void {
+  helpOverlay.removeAttribute("hidden");
+}
+
+function closeHelp(): void {
+  helpOverlay.setAttribute("hidden", "");
+}
+
+helpClose.addEventListener("click", closeHelp);
+helpOverlay.addEventListener("click", (e) => {
+  if (e.target === helpOverlay) closeHelp();
+});
+
 function handleKey(e: KeyboardEvent): void {
-  // Only active in song view
-  if (!currentMeta) return;
   if (isTypingTarget(e)) return;
 
-  if (e.code === "Escape" && currentExerciseDisplayIdx !== null) {
-    closeExercise();
+  // Escape: close help (highest priority) or close exercise
+  if (e.code === "Escape") {
+    if (!helpOverlay.hasAttribute("hidden")) {
+      closeHelp();
+      e.preventDefault();
+      return;
+    }
+    if (currentExerciseDisplayIdx !== null) {
+      closeExercise();
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // ? (Shift+/) — open help (works from anywhere)
+  if (e.code === "Slash" && e.shiftKey) {
     e.preventDefault();
+    openHelp();
     return;
   }
+
+  // Only remaining hotkeys are active in song view
+  if (!currentMeta) return;
 
   if (currentExerciseDisplayIdx !== null) return;
 
@@ -590,6 +695,9 @@ function handleKey(e: KeyboardEvent): void {
 
 window.addEventListener("keydown", handleKey);
 
+// Feature 1: save position on page hide (tab close / refresh)
+window.addEventListener("pagehide", saveSongPosition);
+
 // ── Back-to-home button ───────────────────────────────────────────────────────
 backToHome.addEventListener("click", () => {
   location.hash = "#/";
@@ -616,6 +724,10 @@ function showPlayer(): void {
 // ── State cleanup: dispose previous song ──────────────────────────────────────
 
 function disposeSong(): void {
+  // Feature 1: save position before navigation
+  saveSongPosition();
+  stopPositionSave();
+
   // Stop and clear video
   video.pause();
   video.removeAttribute("src");
@@ -710,10 +822,15 @@ function renderHome(): void {
     btn.className = "song-card";
     btn.dataset["slug"] = song.slug;
     btn.title = "Hover to hear the artist jingle";
+    const doneCount = getCompleted(song.slug).size;
+    const progressLine = doneCount > 0
+      ? `<div class="song-card-progress">${doneCount} / ${song.exerciseCount} done</div>`
+      : "";
     btn.innerHTML = `
       <div class="song-card-title">${song.title}</div>
       <div class="song-card-artist">${song.artist}</div>
       <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
+      ${progressLine}
     `;
     btn.addEventListener("mouseenter", () => {
       playJingle(song.jingleUrl);
@@ -724,6 +841,22 @@ function renderHome(): void {
     });
     grid.appendChild(btn);
   }
+}
+
+// ── Feature 4: exercise dropdown with ✓ markers ───────────────────────────────
+
+function refreshExerciseDropdown(): void {
+  const previousValue = exerciseSelect.value;
+  exerciseSelect.innerHTML = '<option value="">Choose exercise…</option>';
+  if (!currentMeta || displayToCd.length === 0) return;
+  const completed = getCompleted(currentMeta.slug);
+  for (let i = 1; i <= displayToCd.length; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = completed.has(i) ? `Exercise ${i} ✓` : `Exercise ${i}`;
+    exerciseSelect.appendChild(opt);
+  }
+  exerciseSelect.value = previousValue;
 }
 
 // ── Song rendering ────────────────────────────────────────────────────────────
@@ -742,8 +875,19 @@ async function renderSong(meta: SongMeta): Promise<void> {
   video.src = meta.videoUrl;
   video.load();
 
-  // Apply speed rate after metadata loads
-  video.addEventListener("loadedmetadata", () => applyRate(initialRate), { once: true });
+  // Apply speed + volume + resume position after metadata loads
+  video.addEventListener("loadedmetadata", () => {
+    applyRate(initialRate);
+    applyVolume(initialVolume);
+    // Feature 1: restore saved position
+    const savedPos = getPosition(meta.slug);
+    if (isFinite(savedPos) && savedPos > 0 && savedPos <= video.duration - 0.5) {
+      video.currentTime = savedPos;
+    }
+  }, { once: true });
+
+  // Feature 1: start periodic position save
+  startPositionSave();
 
   // Create chord diagram renderers
   nowDiagram  = new ChordDiagram(nowCanvas,  meta.chordImageUrl);
@@ -805,13 +949,8 @@ async function renderSong(meta: SongMeta): Promise<void> {
 
   console.log(`[${meta.slug}] displayToCd:`, displayToCd);
 
-  // Populate exercise dropdown
-  for (let i = 1; i <= displayToCd.length; i++) {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = `Exercise ${i}`;
-    exerciseSelect.appendChild(opt);
-  }
+  // Populate exercise dropdown (Feature 4: ✓ markers)
+  refreshExerciseDropdown();
 
   // Create ScoreSync helper
   sync = new ScoreSync(loadedScore, video);
@@ -838,6 +977,51 @@ async function renderSong(meta: SongMeta): Promise<void> {
   // Start loop RAF
   startLoopRaf();
 }
+
+// ── Feature 5: Settings panel ─────────────────────────────────────────────────
+
+function openSettings(): void {
+  // Sync sliders to current values before opening
+  const currentRate = parseFloat(localStorage.getItem(SPEED_KEY) ?? "1");
+  const currentVol = parseFloat(localStorage.getItem(VOLUME_KEY) ?? "0.8");
+  settingDefaultSpeed.value = String(isFinite(currentRate) ? currentRate : 1);
+  settingDefaultSpeedVal.textContent = (isFinite(currentRate) ? currentRate : 1).toFixed(2) + "×";
+  settingDefaultVolume.value = String(isFinite(currentVol) ? currentVol : 0.8);
+  settingDefaultVolVal.textContent = Math.round((isFinite(currentVol) ? currentVol : 0.8) * 100) + "%";
+  settingsOverlay.removeAttribute("hidden");
+}
+
+function closeSettings(): void {
+  settingsOverlay.setAttribute("hidden", "");
+}
+
+settingsBtn.addEventListener("click", openSettings);
+settingClose.addEventListener("click", closeSettings);
+settingsOverlay.addEventListener("click", (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+settingDefaultSpeed.addEventListener("input", () => {
+  const r = parseFloat(settingDefaultSpeed.value);
+  settingDefaultSpeedVal.textContent = r.toFixed(2) + "×";
+  localStorage.setItem(SPEED_KEY, String(r));
+  // Apply immediately if song loaded
+  if (currentMeta) applyRate(r);
+});
+
+settingDefaultVolume.addEventListener("input", () => {
+  const v = parseFloat(settingDefaultVolume.value);
+  settingDefaultVolVal.textContent = Math.round(v * 100) + "%";
+  localStorage.setItem(VOLUME_KEY, String(v));
+  if (currentMeta) applyVolume(v);
+});
+
+settingResetProgress.addEventListener("click", () => {
+  if (window.confirm("Reset progress for all songs?")) {
+    resetProgress();
+    closeSettings();
+  }
+});
 
 // ── Hash router ───────────────────────────────────────────────────────────────
 
