@@ -629,3 +629,148 @@ body.exercise-mode .tab-viewport { display: none; }
 }
 
 #exercise-tab-row.no-image { display: none !important; }
+
+/* ── Feature 4: progress on home cards ───────────────────────────────── */
+.song-card-progress {
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+/* ── Feature 4: Mark done button ────────────────────────────────────────── */
+.ex-done-btn {
+  margin-left: auto;
+  border-color: var(--border);
+}
+
+.ex-done-btn.done {
+  background: var(--accent-dim);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ── Feature 3: Help overlay ─────────────────────────────────────────── */
+#help-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+}
+
+#help-overlay[hidden] { display: none; }
+
+.help-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 24px 32px;
+  border-radius: 8px;
+  min-width: 420px;
+  color: var(--text);
+}
+
+.help-panel h2 { margin-bottom: 16px; font-size: 1.1rem; }
+
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.help-table th,
+.help-table td {
+  text-align: left;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-table th { color: var(--text-dim); font-weight: 600; }
+
+.help-table td:first-child {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+  color: var(--accent);
+}
+
+#help-close {
+  padding: 8px 16px;
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#help-close:hover { background: var(--btn-hover); }
+
+/* ── Feature 5: Settings overlay ────────────────────────────────────── */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+}
+
+#settings-overlay[hidden] { display: none; }
+
+.settings-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 24px 32px;
+  border-radius: 8px;
+  min-width: 360px;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-panel h2 { font-size: 1.1rem; }
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.setting-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.setting-row span {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+  min-width: 3.5em;
+  text-align: right;
+  color: var(--text);
+}
+
+.setting-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.chord-btn.danger {
+  border-color: #a44;
+  color: #e88;
+}
+
+.chord-btn.danger:hover {
+  background: #3a1212;
+  border-color: #c55;
+}
+
+/* ── Settings button in header ───────────────────────────────────────── */
+#settings-btn {
+  flex-shrink: 0;
+  font-size: 1rem;
+}

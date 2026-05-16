@@ -26,6 +26,7 @@
         <button id="btn-vert" class="active">Vert</button>
         <button id="btn-horiz">Horiz</button>
       </div>
+      <button id="settings-btn" type="button" class="chord-btn" title="Settings">&#9881;</button>
     </header>
 
     <!-- Main: video left, panel right -->
@@ -51,6 +52,7 @@
             <label class="ex-autoplay">
               <input id="ex-autoplay" type="checkbox" checked /> Auto-play
             </label>
+            <button id="ex-done" class="chord-btn ex-done-btn" type="button">&#10003; Mark done</button>
           </div>
         </div>
       </div>
@@ -87,11 +89,11 @@
         </div>
       </label>
       <div class="loop-controls">
-        <button id="loop-here"   type="button" class="loop-here-btn" title="Set 1-bar loop at cursor">🔁 Loop here</button>
+        <button id="loop-here"   type="button" class="loop-here-btn" title="Set 1-bar loop at cursor">&#128257; Loop here</button>
         <button id="ab-a"        type="button" class="ab-btn">A —</button>
         <button id="ab-b"        type="button" class="ab-btn">B —</button>
-        <button id="loop-toggle" type="button" class="loop-btn" disabled title="Toggle loop (L)">⟲ Loop</button>
-        <button id="loop-clear"  type="button" class="loop-clear" title="Clear A/B (C)">✕</button>
+        <button id="loop-toggle" type="button" class="loop-btn" disabled title="Toggle loop (L)">&#8634; Loop</button>
+        <button id="loop-clear"  type="button" class="loop-clear" title="Clear A/B (C)">&#10005;</button>
       </div>
     </div>
 
@@ -100,6 +102,46 @@
       <!-- TabScroller injects .tab-viewport here -->
       <div id="exercise-tab-row" hidden>
         <img id="exercise-tab-img" alt="Exercise tab" />
+      </div>
+    </div>
+
+    <!-- Feature 3: Help overlay -->
+    <div id="help-overlay" hidden>
+      <div class="help-panel">
+        <h2>Keyboard shortcuts</h2>
+        <table class="help-table">
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td>Space</td>            <td>Play / pause</td></tr>
+          <tr><td>&#8592; / &#8594;</td>            <td>Seek &#177;5 seconds</td></tr>
+          <tr><td>Shift + &#8592; / &#8594;</td>    <td>Previous / next bar</td></tr>
+          <tr><td>[</td>                <td>Move A one bar back (or set A)</td></tr>
+          <tr><td>]</td>                <td>Move B one bar forward (or set B)</td></tr>
+          <tr><td>Shift + [ / ]</td>    <td>Shrink loop boundary</td></tr>
+          <tr><td>L</td>                <td>Toggle loop on/off</td></tr>
+          <tr><td>C</td>                <td>Clear A/B/loop</td></tr>
+          <tr><td>?</td>                <td>Show this help</td></tr>
+          <tr><td>Esc</td>              <td>Close exercise / close help</td></tr>
+        </table>
+        <button id="help-close" type="button">Close</button>
+      </div>
+    </div>
+
+    <!-- Feature 5: Settings overlay -->
+    <div id="settings-overlay" hidden>
+      <div class="settings-panel">
+        <h2>Settings</h2>
+        <label class="setting-row">Default speed
+          <input id="setting-default-speed" type="range" min="0.25" max="1.5" step="0.05" value="1" />
+          <span id="setting-default-speed-value">1.00&#215;</span>
+        </label>
+        <label class="setting-row">Default volume
+          <input id="setting-default-volume" type="range" min="0" max="1" step="0.05" value="0.8" />
+          <span id="setting-default-volume-value">80%</span>
+        </label>
+        <div class="setting-actions">
+          <button id="setting-reset-progress" type="button" class="chord-btn danger">Reset all progress</button>
+          <button id="setting-close" type="button" class="chord-btn">Close</button>
+        </div>
       </div>
     </div>
 
