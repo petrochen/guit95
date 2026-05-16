@@ -63,10 +63,11 @@ export class TabScroller {
 
   // ── Drag state ────────────────────────────────────────────────────────────
   private isDragging = false;
-  private dragStartX = 0;        // clientX at mouse-down
-  private dragLastX = 0;         // clientX at last mouse-move
+  private dragStartX = 0;        // clientX at pointer-down
+  private dragLastX = 0;         // clientX at last pointer-move
   private dragTotalDeltaX = 0;   // cumulative |delta| for click detection
-  private mousedownTarget: HTMLElement | null = null; // element under mousedown
+  private pointerdownTarget: HTMLElement | null = null; // element under pointerdown
+  private activePointerId: number | null = null;
 
   constructor(container: HTMLElement, opts: TabScrollerOpts) {
     this.score = opts.score;
@@ -108,8 +109,10 @@ export class TabScroller {
     this.viewport.appendChild(this.cursor);
     container.appendChild(this.viewport);
 
-    // ── Drag + click event handling ───────────────────────────────────────────
-    this.viewport.addEventListener("mousedown", (e) => this.onMouseDown(e));
+    // ── Feature 2: Pointer Events (unifies mouse + touch + pen) ──────────────
+    // touchAction:none tells iOS Safari we handle gestures ourselves.
+    this.viewport.style.touchAction = "none";
+    this.viewport.addEventListener("pointerdown", (e) => this.onPointerDown(e));
 
     // ── Wheel scroll (bonus) ──────────────────────────────────────────────────
     this.viewport.addEventListener("wheel", (e) => {
@@ -302,62 +305,69 @@ export class TabScroller {
     return Math.max(startingPixel, Math.min(endingPixel, pixel));
   }
 
-  // ── Drag + click handling ─────────────────────────────────────────────────────
+  // ── Feature 2: Pointer Events drag + click handling ─────────────────────────
 
-  private onMouseDown(e: MouseEvent): void {
+  private onPointerDown(e: PointerEvent): void {
+    // Only handle primary pointer (ignore secondary touches for now)
+    if (this.activePointerId !== null) return;
+
+    e.preventDefault(); // Suppress iOS scroll/zoom default
+    this.viewport.setPointerCapture(e.pointerId);
+    this.activePointerId = e.pointerId;
+
     this.isDragging = true;
     this.dragStartX = e.clientX;
     this.dragLastX = e.clientX;
     this.dragTotalDeltaX = 0;
-    this.mousedownTarget = e.target as HTMLElement;
+    this.pointerdownTarget = e.target as HTMLElement;
 
     // Disable CSS transition during drag
     this.strip.classList.add("dragging");
 
-    const onMouseMove = (ev: MouseEvent) => {
+    const onPointerMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== this.activePointerId) return;
       const deltaX = ev.clientX - this.dragLastX;
       this.dragTotalDeltaX += Math.abs(deltaX);
       this.dragLastX = ev.clientX;
 
       // Dragging right (positive deltaX) = viewport moves right = earlier content
-      // viewportOffset decreases; dragging left = viewportOffset increases
       this.viewportOffset = this.clampOffset(this.viewportOffset - deltaX);
-
-      // Update cursor position to reflect new offset (no video seek)
       this.applyTransforms();
     };
 
-    const onMouseUp = (_ev: MouseEvent) => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
+    const onPointerUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== this.activePointerId) return;
+      this.viewport.removeEventListener("pointermove", onPointerMove);
+      this.viewport.removeEventListener("pointerup", onPointerUp);
+      this.viewport.removeEventListener("pointercancel", onPointerUp);
 
       this.strip.classList.remove("dragging");
       this.isDragging = false;
+      this.activePointerId = null;
 
       // Click detection: total movement < 4 px → dispatch based on target
       if (this.dragTotalDeltaX < 4) {
-        const hotspot = this.mousedownTarget?.closest(".difficulty-hotspot") as HTMLElement | null;
+        const hotspot = this.pointerdownTarget?.closest(".difficulty-hotspot") as HTMLElement | null;
         if (hotspot) {
-          // Hotspot click: fire callback, do NOT seek
           const exercice = parseInt(hotspot.dataset["exercice"] ?? "0", 10);
           const sound = hotspot.dataset["sound"] ?? "";
           this.onDifficultyClick?.(exercice, sound);
         } else {
-          // Normal strip click: seek video
-          this.handleClick(_ev);
+          this.handleClick(ev);
         }
       }
 
-      this.mousedownTarget = null;
+      this.pointerdownTarget = null;
     };
 
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
+    this.viewport.addEventListener("pointermove", onPointerMove);
+    this.viewport.addEventListener("pointerup", onPointerUp);
+    this.viewport.addEventListener("pointercancel", onPointerUp);
   }
 
   // ── Click-to-seek ─────────────────────────────────────────────────────────────
 
-  private handleClick(e: MouseEvent): void {
+  private handleClick(e: PointerEvent): void {
     if (this.fps === null) return;
 
     const rect = this.viewport.getBoundingClientRect();
