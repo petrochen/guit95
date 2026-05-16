@@ -1189,11 +1189,19 @@ tunerOverlay.addEventListener("click", (e) => {
 // exercises). Each has segment videos like 1-1.mp4 etc. + rex1-1.wav voice.
 const TOOLKIT_COUNT = 9;
 let toolkitCurrent = 0;            // 1..9, 0 = none open
-let toolkitSegments: { video: string; voice: string }[] = [];
+let toolkitSegments: TKSeg[] = [];
 let toolkitSegIdx = 0;
 const toolkitVoiceAudio = new Audio();
 toolkitVoiceAudio.addEventListener("play",  () => toolkitVideo.pause());
 toolkitVideo.addEventListener     ("play",  () => toolkitVoiceAudio.pause());
+
+// Shared audio element for toolkit title voices (hover) — mirrors jingles.
+const toolkitTitleAudio = new Audio();
+function playToolkitTitle(n: number): void {
+  toolkitTitleAudio.src = `/toolkit/${n}/title.wav`;
+  toolkitTitleAudio.currentTime = 0;
+  void toolkitTitleAudio.play().catch(() => {});
+}
 
 function openToolkit(): void {
   toolkitView.removeAttribute("hidden");
@@ -1205,6 +1213,7 @@ function openToolkit(): void {
       btn.className = "toolkit-btn";
       btn.textContent = `Exercise ${i}`;
       btn.dataset["n"] = String(i);
+      btn.addEventListener("mouseenter", () => playToolkitTitle(i));
       btn.addEventListener("click", () => loadToolkitExercise(i));
       toolkitGrid.appendChild(btn);
     }
@@ -1216,59 +1225,124 @@ function closeToolkit(): void {
   homeView.removeAttribute("hidden");
   toolkitVideo.pause();
   toolkitVoiceAudio.pause();
+  toolkitTitleAudio.pause();
 }
 function loadToolkitExercise(n: number): void {
   if (n < 1 || n > TOOLKIT_COUNT) return;
   toolkitCurrent = n;
+  toolkitTitleAudio.pause();
   toolkitSegments = listToolkitSegments(n);
   toolkitSegIdx = 0;
-  toolkitPageInfo.textContent = `Exercise ${n} of ${TOOLKIT_COUNT} · ${toolkitSegments.length} segment${toolkitSegments.length === 1 ? "" : "s"}`;
+  toolkitPageInfo.textContent = `Exercise ${n} of ${TOOLKIT_COUNT}`;
   // Update grid active
   toolkitGrid.querySelectorAll(".toolkit-btn").forEach((b) => {
     b.classList.toggle("active", (b as HTMLElement).dataset["n"] === String(n));
   });
+  // Render segment buttons below video (replace existing row)
+  renderToolkitSegmentRow();
   startToolkitSegment(0);
 }
-// Toolkit segment patterns vary per exercise (CD numbering irregular):
-//   1-6: rex<N>-1.wav + rex<N>-2.wav → 2 segments  (<N>-1.mp4, <N>-2.mp4)
-//   7:   rex7-0.wav + 7-1.mp4 → 1 segment (single title voice + single video)
-//   8:   complex (8-1a/b/c) — fallback to single segment using 8-2 (smaller demo)
-//   9:   rex9-1 + rex9-2 → 2 segments
-const TOOLKIT_SEGMENT_PLAN: Record<number, { video: string; voice: string }[]> = {
-  1: [{video:"/toolkit/1/1-1.mp4", voice:"/toolkit/1/rex1-1.wav"}, {video:"/toolkit/1/1-2.mp4", voice:"/toolkit/1/rex1-2.wav"}],
-  2: [{video:"/toolkit/2/2-1.mp4", voice:"/toolkit/2/rex2-1.wav"}, {video:"/toolkit/2/2-2.mp4", voice:"/toolkit/2/rex2-2.wav"}],
-  3: [{video:"/toolkit/3/3-1.mp4", voice:"/toolkit/3/rex3-1.wav"}, {video:"/toolkit/3/3-2.mp4", voice:"/toolkit/3/rex3-2.wav"}],
-  4: [{video:"/toolkit/4/4-1.mp4", voice:"/toolkit/4/rex4-1.wav"}, {video:"/toolkit/4/4-2.mp4", voice:"/toolkit/4/rex4-2.wav"}],
-  5: [{video:"/toolkit/5/5-1.mp4", voice:"/toolkit/5/rex5-1.wav"}, {video:"/toolkit/5/5-2.mp4", voice:"/toolkit/5/rex5-2.wav"}],
-  6: [{video:"/toolkit/6/6-1.mp4", voice:"/toolkit/6/rex6-1.wav"}, {video:"/toolkit/6/6-2.mp4", voice:"/toolkit/6/rex6-2.wav"}],
-  7: [{video:"/toolkit/7/7-1.mp4", voice:"/toolkit/7/rex7-0.wav"}],
-  8: [{video:"/toolkit/8/8-2.mp4", voice:"/toolkit/8/rex8-2.wav"}],
-  9: [{video:"/toolkit/9/9-1.mp4", voice:"/toolkit/9/rex9-1.wav"}, {video:"/toolkit/9/9-2.mp4", voice:"/toolkit/9/rex9-2.wav"}],
+
+// Render row of [Slow 1 + voice] [Normal 1] ... buttons under the video.
+function renderToolkitSegmentRow(): void {
+  // Create row if absent
+  let row = document.getElementById("toolkit-segments");
+  if (!row) {
+    row = document.createElement("div");
+    row.id = "toolkit-segments";
+    row.className = "ex-segments";
+    // Insert AFTER the video, BEFORE the bottom controls
+    toolkitVideo.insertAdjacentElement("afterend", row);
+  }
+  row.innerHTML = "";
+  toolkitSegments.forEach((seg, i) => {
+    const btn = document.createElement("button");
+    btn.className = "ex-segment-btn";
+    btn.textContent = seg.label;
+    btn.dataset["i"] = String(i);
+    btn.addEventListener("click", () => startToolkitSegment(i));
+    row.appendChild(btn);
+  });
+}
+function updateToolkitSegmentActive(idx: number): void {
+  const row = document.getElementById("toolkit-segments");
+  if (!row) return;
+  row.querySelectorAll(".ex-segment-btn").forEach((b) => {
+    b.classList.toggle("active", (b as HTMLElement).dataset["i"] === String(idx));
+  });
+}
+// Toolkit segments matching the original CD's sequence-runner design.
+//
+// For each lesson N (1..9), the CD has two camera angles:
+//   <N>-Kg.avi — guitar close-up (hands), shown DURING voice explanation
+//   <N>-K.avi  — overview (full body), played AFTER as silent normal-tempo demo
+// Plus a title voice (rex<N>-tit.wav, copied as title.wav) that plays on hover.
+//
+// Each lesson typically has 2 variations (K=1, K=2) → 4 segments total:
+//   "slow + voice"     uses Kg + rex<N>-K
+//   "normal (silent)"  uses K alone
+type TKSeg = { video: string; voice: string | null; label: string };
+const TKS = (n: number): TKSeg[] => [
+  { video: `/toolkit/${n}/${n}-1g.mp4`, voice: `/toolkit/${n}/rex${n}-1.wav`, label: "Slow 1 + voice" },
+  { video: `/toolkit/${n}/${n}-1.mp4`,  voice: null,                          label: "Normal 1" },
+  { video: `/toolkit/${n}/${n}-2g.mp4`, voice: `/toolkit/${n}/rex${n}-2.wav`, label: "Slow 2 + voice" },
+  { video: `/toolkit/${n}/${n}-2.mp4`,  voice: null,                          label: "Normal 2" },
+];
+const TOOLKIT_SEGMENT_PLAN: Record<number, TKSeg[]> = {
+  1: TKS(1), 2: TKS(2), 3: TKS(3), 4: TKS(4), 5: TKS(5), 6: TKS(6), 9: TKS(9),
+  7: [
+    { video: "/toolkit/7/7-1g.mp4", voice: "/toolkit/7/rex7-0.wav", label: "Slow + voice" },
+    { video: "/toolkit/7/7-1.mp4",  voice: null,                    label: "Normal" },
+  ],
+  8: [
+    { video: "/toolkit/8/8-1ag.mp4", voice: "/toolkit/8/rex8-0.wav", label: "Part A slow" },
+    { video: "/toolkit/8/8-1a.mp4",  voice: null,                    label: "Part A normal" },
+    { video: "/toolkit/8/8-1bg.mp4", voice: "/toolkit/8/rex8-1.wav", label: "Part B slow" },
+    { video: "/toolkit/8/8-1b.mp4",  voice: null,                    label: "Part B normal" },
+    { video: "/toolkit/8/8-1cg.mp4", voice: "/toolkit/8/rex8-2.wav", label: "Part C slow" },
+    { video: "/toolkit/8/8-1c.mp4",  voice: null,                    label: "Part C normal" },
+    { video: "/toolkit/8/8-2g.mp4",  voice: "/toolkit/8/rex8-4.wav", label: "Part 2 slow" },
+    { video: "/toolkit/8/8-2.mp4",   voice: null,                    label: "Part 2 normal" },
+  ],
 };
-function listToolkitSegments(n: number): { video: string; voice: string }[] {
+function listToolkitSegments(n: number): TKSeg[] {
   return TOOLKIT_SEGMENT_PLAN[n] ?? [];
 }
 function startToolkitSegment(idx: number): void {
   if (idx < 0 || idx >= toolkitSegments.length) return;
   toolkitSegIdx = idx;
   const seg = toolkitSegments[idx]!;
-  // Play voice intro first; on ended, play video.
+  updateToolkitSegmentActive(idx);
+  toolkitVoiceAudio.pause();
+  toolkitVideo.pause();
+  toolkitVideo.src = seg.video;
+  toolkitVideo.load();
   if (toolkitAutoplay.checked) {
-    toolkitVoiceAudio.src = seg.voice;
-    toolkitVoiceAudio.onended = () => { toolkitVideo.src = seg.video; void toolkitVideo.play(); };
-    toolkitVideo.onended = () => { startToolkitSegment(idx + 1); }; // chain
-    void toolkitVoiceAudio.play().catch(() => {});
+    if (seg.voice) {
+      toolkitVoiceAudio.src = seg.voice;
+      toolkitVoiceAudio.onended = () => {
+        void toolkitVideo.play().catch(() => {});
+      };
+      toolkitVideo.onended = () => { startToolkitSegment(idx + 1); }; // chain to next segment
+      void toolkitVoiceAudio.play().catch(() => {});
+    } else {
+      // No voice (silent demo) — just play video directly
+      toolkitVoiceAudio.removeAttribute("src");
+      toolkitVideo.onended = () => { startToolkitSegment(idx + 1); };
+      void toolkitVideo.play().catch(() => {});
+    }
   } else {
-    toolkitVoiceAudio.src = seg.voice;
-    toolkitVideo.src = seg.video;
+    if (seg.voice) toolkitVoiceAudio.src = seg.voice;
+    else toolkitVoiceAudio.removeAttribute("src");
   }
 }
 
 homeToolkitBtn.addEventListener("click", openToolkit);
 toolkitBack.addEventListener("click", closeToolkit);
 toolkitVoiceBtn.addEventListener("click", () => {
-  if (toolkitSegments[toolkitSegIdx]) {
-    toolkitVoiceAudio.src = toolkitSegments[toolkitSegIdx]!.voice;
+  const seg = toolkitSegments[toolkitSegIdx];
+  if (seg && seg.voice) {
+    toolkitVoiceAudio.src = seg.voice;
     toolkitVoiceAudio.currentTime = 0;
     void toolkitVoiceAudio.play();
   }
