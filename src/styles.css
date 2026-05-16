@@ -38,12 +38,78 @@ body {
     "tabstrip";
 }
 
+/* ── Home screen ─────────────────────────────────────────────────────── */
+#home-view {
+  padding: 32px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-y: auto;
+  /* When shown, home-view is not inside the player grid; it fills the body */
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+}
+
+#home-view[hidden] { display: none; }
+
+.home-title {
+  font-size: 1.4rem;
+  margin-bottom: 24px;
+}
+
+.song-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.song-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.song-card:hover {
+  background: var(--btn-hover);
+  border-color: #666;
+}
+
+.song-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.song-card-artist {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.song-card-meta {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ── Player show/hide ────────────────────────────────────────────────── */
+#header[hidden],
+#main[hidden],
+#playback-controls[hidden],
+#tab-row[hidden] { display: none; }
+
 /* ── Header ──────────────────────────────────────────────────────────── */
 #header {
   grid-area: header;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 10px 16px;
   background: #0a0a0a;
   border-bottom: 1px solid var(--border);
@@ -53,6 +119,12 @@ body {
   font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  flex: 1;
+}
+
+#back-to-home {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 #orientation-toggle {
@@ -513,17 +585,6 @@ body {
   flex: 1;
 }
 
-#ex-tab {
-  display: block;
-  align-self: center;
-  max-width: 100%;
-  max-height: 110px;
-  image-rendering: pixelated;
-  border: 1px solid var(--border);
-}
-
-#ex-tab[hidden] { display: none; }
-
 .ex-bottom {
   display: flex;
   align-items: center;
@@ -546,3 +607,25 @@ body.exercise-mode #playback-controls input[type="range"] {
   pointer-events: none;
   cursor: not-allowed;
 }
+
+/* ── Exercise tab strip (replaces song tab strip in exercise mode) ────── */
+#exercise-tab-row {
+  display: none;
+  padding: 16px;
+  background: #0f0f0f;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+body.exercise-mode #exercise-tab-row { display: block; }
+body.exercise-mode .tab-viewport { display: none; }
+
+#exercise-tab-img {
+  display: inline-block;
+  max-width: 100%;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+}
+
+#exercise-tab-row.no-image { display: none !important; }

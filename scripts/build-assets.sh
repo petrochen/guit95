@@ -4,7 +4,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # build-assets.sh — Convert Guit95 CD assets for web delivery.
 # Usage: bash scripts/build-assets.sh [slug ...]
-#   slug defaults to "heyjoe" if no arguments supplied.
+#   slug defaults to all 7 songs if no arguments supplied.
 # ---------------------------------------------------------------------------
 
 FFMPEG=/opt/homebrew/bin/ffmpeg
@@ -16,7 +16,25 @@ PUBLIC_ASSETS="$SCRIPT_DIR/../public/assets"
 mkdir -p "$PUBLIC_ASSETS"
 PUBLIC_ASSETS="$(cd "$PUBLIC_ASSETS" && pwd)"
 
-SLUGS=("${@:-heyjoe}")
+# All 7 songs: slug:FOLDER:VIDEO_STEM:EXERCISE_COUNT
+SONG_DEFS=(
+  "heyjoe:HEYJOE:HJOE:16"
+  "life:LIFE:LBTD:7"
+  "woman:WOMAN:NWNC:13"
+  "blowin:BLOWIN:BITW:7"
+  "dust:DUST:DITW:9"
+  "sweet:SWEET:SHA:12"
+  "wild:WILD:WW:10"
+)
+
+ALL_SLUGS=()
+for DEF in "${SONG_DEFS[@]}"; do
+  IFS=':' read -r S _ _ _ <<< "$DEF"
+  ALL_SLUGS+=("$S")
+done
+
+# Use args if provided, otherwise all 7
+SLUGS=("${@:-${ALL_SLUGS[@]}}")
 
 START_TIME=$SECONDS
 
@@ -35,27 +53,38 @@ fi
 # ── Helper: lowercase a string ────────────────────────────────────────────────
 lc() { echo "$1" | tr '[:upper:]' '[:lower:]'; }
 
+# ── Helper: lookup song definition by slug ────────────────────────────────────
+get_song_def() {
+  local target="$1"
+  for DEF in "${SONG_DEFS[@]}"; do
+    IFS=':' read -r S _ _ _ <<< "$DEF"
+    if [[ "$S" == "$target" ]]; then
+      echo "$DEF"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # ── Per-slug processing ───────────────────────────────────────────────────────
 for SLUG in "${SLUGS[@]}"; do
-  case "$SLUG" in
-    heyjoe)
-      AVI_SRC="$VIDEO_SRC/HJOE.AVI"
-      GUITAR_DIR="$GUITAR_SRC/HEYJOE"
-      ;;
-    *)
-      echo "WARNING: Unknown slug '$SLUG' — skipping." >&2
-      continue
-      ;;
-  esac
+  DEF=$(get_song_def "$SLUG") || {
+    echo "WARNING: Unknown slug '$SLUG' — skipping." >&2
+    continue
+  }
+
+  IFS=':' read -r slug FOLDER VIDEO_STEM EX_COUNT <<< "$DEF"
+  AVI_SRC="$VIDEO_SRC/${VIDEO_STEM}.AVI"
+  GUITAR_DIR="$GUITAR_SRC/$FOLDER"
 
   DEST="$PUBLIC_ASSETS/$SLUG"
   mkdir -p "$DEST"
 
-  # ── 1. Video conversion ────────────────────────────────────────────────────
-  MP4_DST="$DEST/hjoe.mp4"
+  # ── 1. Video conversion: AVI → slug.mp4 ──────────────────────────────────
+  MP4_DST="$DEST/${SLUG}.mp4"
   echo "==> $SLUG: video"
   if [[ -f "$MP4_DST" && "$MP4_DST" -nt "$AVI_SRC" ]]; then
-    echo "    (skipped — $MP4_DST is up-to-date)"
+    echo "    (skipped — ${SLUG}.mp4 is up-to-date)"
   else
     "$FFMPEG" -y -i "$AVI_SRC" \
       -c:v libx264 -preset slow -crf 22 \
@@ -65,7 +94,7 @@ for SLUG in "${SLUGS[@]}"; do
     echo "    -> $MP4_DST"
   fi
 
-  # ── 2. Raw data (HEYJOE/ subtree → raw/, lowercased) ─────────────────────
+  # ── 2. Raw data (FOLDER/ subtree → raw/, lowercased) ─────────────────────
   echo "==> $SLUG: data"
   RAW_DEST="$DEST/raw"
   mkdir -p "$RAW_DEST"
@@ -90,8 +119,6 @@ for SLUG in "${SLUGS[@]}"; do
   echo "    -> $RAW_DEST"
 
   # ── 3. BMP → PNG conversion for chord sprite sheet ────────────────────────
-  # heyjoe2.bmp is an 8-bit palette BMP; Safari does not reliably render
-  # palette BMPs via <img> or Canvas. Convert once to PNG (sips is macOS built-in).
   CHORDS_RAW="$RAW_DEST/chords"
   if [[ -d "$CHORDS_RAW" ]]; then
     echo "==> $SLUG: bmp→png (chords)"
@@ -99,7 +126,10 @@ for SLUG in "${SLUGS[@]}"; do
       [[ -f "$BMP" ]] || continue
       PNG="${BMP%.bmp}.png"
       if [[ ! -f "$PNG" || "$PNG" -ot "$BMP" ]]; then
-        /usr/bin/sips -s format png "$BMP" --out "$PNG" >/dev/null
+        /usr/bin/sips -s format png "$BMP" --out "$PNG" >/dev/null 2>&1 || {
+          echo "    WARNING: sips failed for $(basename "$BMP") — skipping"
+          continue
+        }
         echo "    converted: $(basename "$BMP") → $(basename "$PNG")"
       else
         echo "    (skipped — $(basename "$PNG") up-to-date)"
@@ -108,23 +138,71 @@ for SLUG in "${SLUGS[@]}"; do
   fi
 
   # ── 4. BMP → PNG conversion for tab strip ──────────────────────────────────
-  # heyj-b2.bmp (~14000 px wide, 8-bit palette) — convert to PNG for reliable
-  # cross-browser rendering. PNG is also much smaller (~82 KB vs 390 KB).
   PLAY_RAW="$RAW_DEST/play"
   if [[ -d "$PLAY_RAW" ]]; then
     echo "==> $SLUG: bmp→png (tab strip)"
-    TAB_BMP="$PLAY_RAW/heyj-b2.bmp"
-    TAB_PNG="$PLAY_RAW/heyj-b2.png"
-    if [[ -f "$TAB_BMP" ]]; then
-      if [[ ! -f "$TAB_PNG" || "$TAB_PNG" -ot "$TAB_BMP" ]]; then
-        /usr/bin/sips -s format png "$TAB_BMP" --out "$TAB_PNG" >/dev/null
-        SIZE=$(du -k "$TAB_PNG" | cut -f1)
-        echo "    converted: heyj-b2.bmp → heyj-b2.png (${SIZE} KB)"
+    for BMP in "$PLAY_RAW"/*.bmp; do
+      [[ -f "$BMP" ]] || continue
+      PNG="${BMP%.bmp}.png"
+      if [[ ! -f "$PNG" || "$PNG" -ot "$BMP" ]]; then
+        /usr/bin/sips -s format png "$BMP" --out "$PNG" >/dev/null 2>&1 || {
+          echo "    WARNING: sips failed for $(basename "$BMP") — skipping"
+          continue
+        }
+        SIZE=$(du -k "$PNG" 2>/dev/null | cut -f1 || echo "?")
+        echo "    converted: $(basename "$BMP") → $(basename "$PNG") (${SIZE} KB)"
       else
-        SIZE=$(du -k "$TAB_PNG" | cut -f1)
-        echo "    (skipped — heyj-b2.png up-to-date, ${SIZE} KB)"
+        SIZE=$(du -k "$PNG" 2>/dev/null | cut -f1 || echo "?")
+        echo "    (skipped — $(basename "$PNG") up-to-date, ${SIZE} KB)"
       fi
-    fi
+    done
+  fi
+
+  # ── 5. Exercise videos: AVI → MP4 ────────────────────────────────────────
+  EXERCICE_RAW="$RAW_DEST/exercice"
+  if [[ -d "$EXERCICE_RAW" ]]; then
+    echo "==> $SLUG: exercise videos (AVI → MP4)"
+    for N in $(seq 1 "$EX_COUNT"); do
+      EX_DIR="$EXERCICE_RAW/$N"
+      [[ -d "$EX_DIR" ]] || continue
+      for AVI in "$EX_DIR"/*.avi; do
+        [[ -f "$AVI" ]] || continue
+        MP4="${AVI%.avi}.mp4"
+        if [[ -f "$MP4" && "$MP4" -nt "$AVI" ]]; then
+          echo "    (skipped — $(basename "$MP4") up-to-date)"
+        else
+          echo "    encoding: $(basename "$AVI") → $(basename "$MP4")"
+          "$FFMPEG" -y -i "$AVI" \
+            -c:v libx264 -preset slow -crf 22 \
+            -c:a aac -b:a 128k \
+            -movflags +faststart \
+            "$MP4" 2>/dev/null
+          echo "    -> $(basename "$MP4")"
+        fi
+      done
+    done
+  fi
+
+  # ── 6. Exercise tab BMPs → PNG ────────────────────────────────────────────
+  if [[ -d "$EXERCICE_RAW" ]]; then
+    echo "==> $SLUG: exercise tab images (BMP → PNG)"
+    for N in $(seq 1 "$EX_COUNT"); do
+      EX_DIR="$EXERCICE_RAW/$N"
+      [[ -d "$EX_DIR" ]] || continue
+      for BMP in "$EX_DIR"/sco*.bmp; do
+        [[ -f "$BMP" ]] || continue
+        PNG="${BMP%.bmp}.png"
+        if [[ -f "$PNG" && "$PNG" -nt "$BMP" ]]; then
+          echo "    (skipped — $(basename "$PNG") up-to-date)"
+        else
+          /usr/bin/sips -s format png "$BMP" --out "$PNG" >/dev/null 2>&1 || {
+            echo "    WARNING: sips failed for $(basename "$BMP") — skipping"
+            continue
+          }
+          echo "    converted: $(basename "$BMP") → $(basename "$PNG")"
+        fi
+      done
+    done
   fi
 
 done

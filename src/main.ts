@@ -7,6 +7,7 @@ import { ChordDiagram } from "./components/ChordDiagram.js";
 import { TabScroller } from "./components/TabScroller.js";
 import { playSample } from "./audio/sample.js";
 import { ScoreSync } from "./playback/sync.js";
+import { SONGS, getSongBySlug, type SongMeta } from "./songs.js";
 
 // ── INI parser self-test (Phase 0, kept) ─────────────────────────────────────
 const _r = parseIni("BackBmp=foo.bmp\n[chord]\nname=C\nname=D\n");
@@ -18,80 +19,97 @@ console.assert(
 console.log("INI parser self-test:", _r.global["BackBmp"] === "foo.bmp" ? "PASS" : "FAIL");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const CHD_URL  = "/assets/heyjoe/raw/chords/chords.chd";
-const IMG_URL  = "/assets/heyjoe/raw/chords/heyjoe2.png";
-const SCO_URL  = "/assets/heyjoe/raw/play/hjoe.sco";
-const TAB_URL  = "/assets/heyjoe/raw/play/heyj-b2.png";
-const WAV_BASE = "/assets/heyjoe/raw/chords/";
 const ORIENTATION_KEY = "chord-orientation";
 const SPEED_KEY = "playback-rate";
 
-// ── State ─────────────────────────────────────────────────────────────────────
-type Orientation = "vert" | "horiz";
-let orientation: Orientation =
-  (localStorage.getItem(ORIENTATION_KEY) as Orientation | null) ?? "vert";
-
-// Chord lookup by id (populated after CHD loads)
-const chordsById = new Map<number, Chord>();
-
-// Currently displayed chords (so orientation toggle can re-render)
-let nowChordId: number | null = null;
-let nextChordId: number | null = null;
-
-// Last chord ids delivered by onChordsChange (used for manual NOW override)
-let lastNextChord: number | null = null;
-
-// ── DOM refs ──────────────────────────────────────────────────────────────────
-const video      = document.getElementById("player")      as HTMLVideoElement;
-const nowCanvas  = document.getElementById("now-canvas")  as HTMLCanvasElement;
-const nextCanvas = document.getElementById("next-canvas") as HTMLCanvasElement;
-const nowName    = document.getElementById("now-name")    as HTMLElement;
-const nextName   = document.getElementById("next-name")   as HTMLElement;
-const allChords  = document.getElementById("all-chords")  as HTMLElement;
-const tabRow     = document.getElementById("tab-row")     as HTMLElement;
-const btnVert    = document.getElementById("btn-vert")    as HTMLButtonElement;
-const btnHoriz   = document.getElementById("btn-horiz")  as HTMLButtonElement;
+// ── DOM refs (always present) ─────────────────────────────────────────────────
+const homeView      = document.getElementById("home-view")!;
+const header        = document.getElementById("header")!        as HTMLElement;
+const mainEl        = document.getElementById("main")!          as HTMLElement;
+const playbackCtls  = document.getElementById("playback-controls")! as HTMLElement;
+const tabRowEl      = document.getElementById("tab-row")!       as HTMLElement;
+const video         = document.getElementById("player")!        as HTMLVideoElement;
+const nowCanvas     = document.getElementById("now-canvas")!    as HTMLCanvasElement;
+const nextCanvas    = document.getElementById("next-canvas")!   as HTMLCanvasElement;
+const nowName       = document.getElementById("now-name")!      as HTMLElement;
+const nextName      = document.getElementById("next-name")!     as HTMLElement;
+const allChords     = document.getElementById("all-chords")!    as HTMLElement;
+const tabRow        = document.getElementById("tab-row")!       as HTMLElement;
+const btnVert       = document.getElementById("btn-vert")!      as HTMLButtonElement;
+const btnHoriz      = document.getElementById("btn-horiz")!     as HTMLButtonElement;
+const songTitleEl   = document.getElementById("song-title")!    as HTMLElement;
+const backToHome    = document.getElementById("back-to-home")!  as HTMLButtonElement;
 
 // ── Exercise pane DOM refs ────────────────────────────────────────────────────
 const exercisePane     = document.getElementById("exercise-pane")!;
 const exTitle          = document.getElementById("ex-title")!;
-const exVideo          = document.getElementById("ex-video") as HTMLVideoElement;
-const exTab            = document.getElementById("ex-tab") as HTMLImageElement;
-const exBack           = document.getElementById("ex-back") as HTMLButtonElement;
-const exPrev           = document.getElementById("ex-prev") as HTMLButtonElement;
-const exNext           = document.getElementById("ex-next") as HTMLButtonElement;
-const exVoiceBtn       = document.getElementById("ex-voice") as HTMLButtonElement;
-const exReplayBtn      = document.getElementById("ex-replay") as HTMLButtonElement;
-const exAutoplay       = document.getElementById("ex-autoplay") as HTMLInputElement;
-const exerciseSelect   = document.getElementById("exercise-select") as HTMLSelectElement;
+const exVideo          = document.getElementById("ex-video")! as HTMLVideoElement;
+const exerciseTabRow   = document.getElementById("exercise-tab-row")! as HTMLElement;
+const exerciseTabImg   = document.getElementById("exercise-tab-img")! as HTMLImageElement;
+const exBack           = document.getElementById("ex-back")!  as HTMLButtonElement;
+const exPrev           = document.getElementById("ex-prev")!  as HTMLButtonElement;
+const exNext           = document.getElementById("ex-next")!  as HTMLButtonElement;
+const exVoiceBtn       = document.getElementById("ex-voice")! as HTMLButtonElement;
+const exReplayBtn      = document.getElementById("ex-replay")! as HTMLButtonElement;
+const exAutoplay       = document.getElementById("ex-autoplay")! as HTMLInputElement;
+const exerciseSelect   = document.getElementById("exercise-select")! as HTMLSelectElement;
 
-// ── Exercise state ────────────────────────────────────────────────────────────
-let currentExerciseNumber = 0; // 0 = no exercise open
-const voiceAudio = new Audio(); // dedicated audio element for voice playback
+// ── Speed controls ─────────────────────────────────────────────────────────────
+const speedSlider  = document.getElementById("speed-slider")!  as HTMLInputElement;
+const speedValue   = document.getElementById("speed-value")!   as HTMLElement;
+const abBtnA       = document.getElementById("ab-a")!          as HTMLButtonElement;
+const abBtnB       = document.getElementById("ab-b")!          as HTMLButtonElement;
+const loopToggle   = document.getElementById("loop-toggle")!   as HTMLButtonElement;
+const loopClear    = document.getElementById("loop-clear")!    as HTMLButtonElement;
+const preset50     = document.getElementById("preset-50")!     as HTMLButtonElement;
+const preset75     = document.getElementById("preset-75")!     as HTMLButtonElement;
+const preset100    = document.getElementById("preset-100")!    as HTMLButtonElement;
+const loopHereBtn  = document.getElementById("loop-here")!     as HTMLButtonElement;
 
-// Playback controls
-const speedSlider  = document.getElementById("speed-slider")  as HTMLInputElement;
-const speedValue   = document.getElementById("speed-value")   as HTMLElement;
-const abBtnA       = document.getElementById("ab-a")          as HTMLButtonElement;
-const abBtnB       = document.getElementById("ab-b")          as HTMLButtonElement;
-const loopToggle   = document.getElementById("loop-toggle")   as HTMLButtonElement;
-const loopClear    = document.getElementById("loop-clear")    as HTMLButtonElement;
+// ── Persistent global state (survives song changes) ───────────────────────────
+type Orientation = "vert" | "horiz";
+let orientation: Orientation =
+  (localStorage.getItem(ORIENTATION_KEY) as Orientation | null) ?? "vert";
 
-// Phase 3b controls
-const preset50     = document.getElementById("preset-50")     as HTMLButtonElement;
-const preset75     = document.getElementById("preset-75")     as HTMLButtonElement;
-const preset100    = document.getElementById("preset-100")    as HTMLButtonElement;
-const loopHereBtn  = document.getElementById("loop-here")     as HTMLButtonElement;
-
-// ── Diagram renderers ─────────────────────────────────────────────────────────
-const nowDiagram  = new ChordDiagram(nowCanvas,  IMG_URL);
-const nextDiagram = new ChordDiagram(nextCanvas, IMG_URL);
-
-// ── Speed control ──────────────────────────────────────────────────────────────
 const savedRate = parseFloat(localStorage.getItem(SPEED_KEY) ?? "1");
 const initialRate = isFinite(savedRate) && savedRate >= 0.25 && savedRate <= 1.5 ? savedRate : 1;
 
-/** Update which speed preset button (if any) shows as active. */
+// ── Per-song mutable state ────────────────────────────────────────────────────
+// Reset on each song load.
+
+let chordsById = new Map<number, Chord>();
+let nowChordId: number | null = null;
+let nextChordId: number | null = null;
+let lastNextChord: number | null = null;
+
+let currentExerciseDisplayIdx: number | null = null;
+let currentExerciseCdNum: number | null = null;
+
+const cdToDisplay = new Map<number, number>();
+const displayToCd: number[] = [];
+
+let aPixel: number | null = null;
+let bPixel: number | null = null;
+let loopOn = false;
+
+let sync: ScoreSync | null = null;
+let tabScroller: TabScroller | null = null;
+let score: { bars: number[]; startingPixel: number; endingPixel: number } | null = null;
+
+let nowDiagram: ChordDiagram | null = null;
+let nextDiagram: ChordDiagram | null = null;
+
+// voiceAudio: one persistent element (recreated per song for src cleanup)
+let voiceAudio = new Audio();
+
+// Current meta (for exercise paths)
+let currentMeta: SongMeta | null = null;
+
+// RAF id for loop enforcement
+let loopRafId: number | null = null;
+
+// ── Speed control initialisation (once, not per song) ─────────────────────────
+
 function updatePresetActive(r: number): void {
   preset50.classList.toggle("active",  Math.abs(r - 0.5)  < 0.001);
   preset75.classList.toggle("active",  Math.abs(r - 0.75) < 0.001);
@@ -100,7 +118,6 @@ function updatePresetActive(r: number): void {
 
 function applyRate(r: number): void {
   video.playbackRate = r;
-  // Preserve pitch — modern API + Safari fallback
   (video as any).preservesPitch = true;
   (video as any).webkitPreservesPitch = true;
   speedSlider.value = String(r);
@@ -109,35 +126,22 @@ function applyRate(r: number): void {
   updatePresetActive(r);
 }
 
-// Initialise slider immediately (before video metadata loads)
+// Initialise slider once
 speedSlider.value = String(initialRate);
 speedValue.textContent = initialRate.toFixed(2) + "×";
 updatePresetActive(initialRate);
 
 speedSlider.addEventListener("input", () => applyRate(parseFloat(speedSlider.value)));
-
-// Apply rate after video is ready (some browsers need this after src is set)
-video.addEventListener("loadedmetadata", () => applyRate(initialRate), { once: true });
-
-// Speed preset buttons
 preset50.addEventListener("click",  () => applyRate(0.5));
 preset75.addEventListener("click",  () => applyRate(0.75));
 preset100.addEventListener("click", () => applyRate(1.0));
 
-// ── A/B Loop state ─────────────────────────────────────────────────────────────
-let aPixel: number | null = null;
-let bPixel: number | null = null;
-let loopOn = false;
+// ── Playback rate on video load ────────────────────────────────────────────────
+// We re-wire this in renderSong because we need a fresh "once" listener each time.
 
-// ScoreSync is set after score loads (in init). Guard with null check below.
-let sync: ScoreSync | null = null;
-// TabScroller reference set after creation
-let tabScroller: TabScroller | null = null;
-// Score reference (needed for bar walk in keyboard handlers)
-let score: { bars: number[]; startingPixel: number; endingPixel: number } | null = null;
+// ── A/B loop helpers ──────────────────────────────────────────────────────────
 
 function updateMarkersUI(): void {
-  // Update A button
   if (aPixel !== null && sync !== null) {
     const nb = sync.nearestBar(aPixel);
     abBtnA.textContent = nb ? `A bar ${nb.index}` : "A —";
@@ -147,7 +151,6 @@ function updateMarkersUI(): void {
     abBtnA.classList.remove("set-a");
   }
 
-  // Update B button
   if (bPixel !== null && sync !== null) {
     const nb = sync.nearestBar(bPixel);
     abBtnB.textContent = nb ? `B bar ${nb.index}` : "B —";
@@ -157,18 +160,15 @@ function updateMarkersUI(): void {
     abBtnB.classList.remove("set-b");
   }
 
-  // Loop button enabled only when both set and A < B
   const loopValid = aPixel !== null && bPixel !== null && aPixel < bPixel;
   loopToggle.disabled = !loopValid;
   if (!loopValid) loopOn = false;
   loopToggle.dataset["on"] = loopOn ? "true" : "false";
   loopToggle.textContent = loopOn ? "⟲ Loop ON" : "⟲ Loop";
 
-  // Re-render markers on tab strip
   tabScroller?.setLoop({ a: aPixel, b: bPixel, on: loopOn });
 }
 
-/** If both A and B are set and A > B, swap them so A is always <= B. */
 function normaliseAB(): void {
   if (aPixel !== null && bPixel !== null && aPixel > bPixel) {
     const tmp = aPixel;
@@ -211,24 +211,18 @@ abBtnB.addEventListener("click", () => setAtCurrent("b"));
 loopToggle.addEventListener("click", toggleLoop);
 loopClear.addEventListener("click", clearAB);
 
-// ── "Loop here" button ────────────────────────────────────────────────────────
 loopHereBtn.addEventListener("click", () => {
   if (!sync || !score) return;
   const currentPixel = sync.timeToPixel(video.currentTime);
   const nearest = sync.nearestBar(currentPixel);
   if (!nearest) return;
-
-  // nearest.index is 1-indexed; bars[] is 0-indexed.
-  // bars[nearest.index] is the bar AFTER nearest (since nearest is bars[nearest.index-1]).
   const bars = score.bars;
   let nextBarPx: number;
   if (nearest.index < bars.length) {
     nextBarPx = bars[nearest.index]!;
   } else {
-    // At or past the last bar — use endingPixel
     nextBarPx = score.endingPixel;
   }
-
   aPixel = nearest.pixel;
   bPixel = nextBarPx;
   normaliseAB();
@@ -236,11 +230,9 @@ loopHereBtn.addEventListener("click", () => {
   updateMarkersUI();
 });
 
-// ── Chord-button disable during playback ──────────────────────────────────────
-video.addEventListener("play",  () => allChords.classList.add("playing"));
-video.addEventListener("pause", () => allChords.classList.remove("playing"));
+// ── Loop enforcement ──────────────────────────────────────────────────────────
+// These listeners are on the persistent video element — no need to re-attach.
 
-// ── Loop enforcement — timeupdate (low-frequency check) ────────────────────────
 video.addEventListener("timeupdate", () => {
   if (!loopOn || !sync || aPixel === null || bPixel === null) return;
   const aTime = sync.pixelToTime(aPixel);
@@ -250,78 +242,116 @@ video.addEventListener("timeupdate", () => {
   }
 });
 
-// ── Loop enforcement — RAF (high-frequency check, ≤16ms overshoot) ────────────
-let loopRafId: number | null = null;
+function startLoopRaf(): void {
+  if (loopRafId !== null) cancelAnimationFrame(loopRafId);
+  const tick = () => {
+    loopRafId = requestAnimationFrame(tick);
+    if (!loopOn || !sync || aPixel === null || bPixel === null) return;
+    const aTime = sync.pixelToTime(aPixel);
+    const bTime = sync.pixelToTime(bPixel);
+    if (video.currentTime >= bTime) {
+      video.currentTime = aTime;
+    }
+  };
+  loopRafId = requestAnimationFrame(tick);
+}
 
-function loopRafTick(): void {
-  loopRafId = requestAnimationFrame(loopRafTick);
-  if (!loopOn || !sync || aPixel === null || bPixel === null) return;
-  const aTime = sync.pixelToTime(aPixel);
-  const bTime = sync.pixelToTime(bPixel);
-  if (video.currentTime >= bTime) {
-    video.currentTime = aTime;
+// ── Chord-button disable during playback ──────────────────────────────────────
+video.addEventListener("play",  () => allChords.classList.add("playing"));
+video.addEventListener("pause", () => allChords.classList.remove("playing"));
+
+// ── Orientation ───────────────────────────────────────────────────────────────
+function updateOrientationButtons(): void {
+  btnVert.classList.toggle("active", orientation === "vert");
+  btnHoriz.classList.toggle("active", orientation === "horiz");
+}
+
+function setOrientation(o: Orientation): void {
+  orientation = o;
+  localStorage.setItem(ORIENTATION_KEY, o);
+  updateOrientationButtons();
+  renderPreviews(nowChordId, nextChordId);
+}
+
+btnVert.addEventListener("click",  () => setOrientation("vert"));
+btnHoriz.addEventListener("click", () => setOrientation("horiz"));
+
+// ── NOW / NEXT preview rendering ──────────────────────────────────────────────
+function renderPreviews(curId: number | null, nxtId: number | null): void {
+  if (!nowDiagram || !nextDiagram) return;
+
+  const nowChord = curId !== null ? chordsById.get(curId) ?? null : null;
+  if (nowChord) {
+    nowName.textContent = displayChordName(nowChord.name);
+    const rect = orientation === "vert" ? nowChord.picRect : nowChord.picRectUS;
+    nowDiagram.render(rect);
+    const [r, g, b] = nowChord.rgbHighlight;
+    nowCanvas.style.borderColor = `rgb(${r},${g},${b})`;
+  } else {
+    nowName.textContent = "—";
+    nowDiagram.clear();
+    nowCanvas.style.borderColor = "";
+  }
+
+  const nextChord = nxtId !== null ? chordsById.get(nxtId) ?? null : null;
+  if (nextChord) {
+    nextName.textContent = displayChordName(nextChord.name);
+    const rect = orientation === "vert" ? nextChord.picRect : nextChord.picRectUS;
+    nextDiagram.render(rect);
+  } else {
+    nextName.textContent = "—";
+    nextDiagram.clear();
   }
 }
 
-loopRafId = requestAnimationFrame(loopRafTick);
-
-// ── Exercise auto-play sequence ───────────────────────────────────────────────
-
-function startExerciseAutoPlay(ex: ExerciseDef): void {
-  if (!exAutoplay.checked) return;
-  voiceAudio.src = ex.voiceFile;
-  voiceAudio.currentTime = 0;
-  voiceAudio.play().catch(() => {
-    // User gesture may be required; fallback to manual buttons
-  });
-  voiceAudio.onended = () => {
-    exVideo.play().catch(() => {});
-  };
+function handleChordsChange(curId: number | null, nxtId: number | null): void {
+  nowChordId    = curId;
+  nextChordId   = nxtId;
+  lastNextChord = nxtId;
+  renderPreviews(curId, nxtId);
 }
 
 // ── Exercise open / close ─────────────────────────────────────────────────────
 
-async function openExercise(num: number): Promise<void> {
-  if (num < 1 || num > 15) return;
-  currentExerciseNumber = num;
+async function openExerciseByDisplay(displayIdx: number): Promise<void> {
+  if (!currentMeta) return;
+  if (displayIdx < 1 || displayIdx > displayToCd.length) return;
+  const cdNum = displayToCd[displayIdx - 1]!;
+  currentExerciseDisplayIdx = displayIdx;
+  currentExerciseCdNum = cdNum;
 
-  // Pause song video, hide it; show exercise pane
+  console.log(`[hotspot] Open exercise ${displayIdx} (CD: ${cdNum})`);
+
   video.pause();
   video.style.display = "none";
 
-  // Stop any previous exercise playback
   voiceAudio.pause();
   voiceAudio.onended = null;
   exVideo.pause();
 
-  // Show exercise pane; grey out playback controls
   exercisePane.hidden = false;
   document.body.classList.add("exercise-mode");
 
-  // Update UI labels / nav buttons
-  exTitle.textContent = `Exercise ${num}`;
-  exPrev.disabled = num <= 1;
-  exNext.disabled = num >= 15;
+  exTitle.textContent = `Exercise ${displayIdx}`;
+  exPrev.disabled = displayIdx <= 1;
+  exNext.disabled = displayIdx >= displayToCd.length;
 
-  // Sync dropdown
-  exerciseSelect.value = String(num);
+  exerciseSelect.value = String(displayIdx);
 
   try {
-    const ex = await loadExercise(`/assets/heyjoe/raw/exercice/${num}/`, num);
+    const ex = await loadExercise(`${currentMeta.rawDir}exercice/${cdNum}/`, cdNum);
 
-    // Set video source
     exVideo.src = ex.videoFile;
     exVideo.load();
 
-    // Tab image
     if (ex.tabImage) {
-      exTab.src = ex.tabImage;
-      exTab.hidden = false;
+      exerciseTabImg.src = ex.tabImage;
+      exerciseTabRow.classList.remove("no-image");
     } else {
-      exTab.hidden = true;
+      exerciseTabImg.src = "";
+      exerciseTabRow.classList.add("no-image");
     }
 
-    // Wire manual buttons (fresh per exercise)
     exVoiceBtn.onclick = () => {
       voiceAudio.currentTime = 0;
       voiceAudio.play().catch(() => {});
@@ -331,55 +361,69 @@ async function openExercise(num: number): Promise<void> {
       exVideo.play().catch(() => {});
     };
 
-    // Start auto-play sequence: voice → video
     startExerciseAutoPlay(ex);
   } catch (err) {
-    console.error(`[exercise] Failed to load exercise ${num}:`, err);
+    console.error(`[exercise] Failed to load exercise ${displayIdx} (CD: ${cdNum}):`, err);
   }
 }
 
+function startExerciseAutoPlay(ex: ExerciseDef): void {
+  if (!exAutoplay.checked) return;
+  voiceAudio.src = ex.voiceFile;
+  voiceAudio.currentTime = 0;
+  voiceAudio.play().catch(() => {});
+  voiceAudio.onended = () => {
+    exVideo.play().catch(() => {});
+  };
+}
+
 function closeExercise(): void {
-  // Stop exercise media; release memory
   voiceAudio.pause();
+  voiceAudio.currentTime = 0;
   voiceAudio.onended = null;
   voiceAudio.src = "";
   exVideo.pause();
   exVideo.removeAttribute("src");
   exVideo.load();
 
-  // Hide exercise pane, restore song video; reactivate playback controls
+  exerciseTabImg.src = "";
+  exerciseTabRow.classList.remove("no-image");
+
   exercisePane.hidden = true;
   video.style.display = "";
   document.body.classList.remove("exercise-mode");
 
-  // Reset dropdown
   exerciseSelect.value = "";
 
-  currentExerciseNumber = 0;
+  currentExerciseDisplayIdx = null;
+  currentExerciseCdNum = null;
 }
 
-// Wire exercise pane buttons
 exBack.addEventListener("click", closeExercise);
 exPrev.addEventListener("click", () => {
-  if (currentExerciseNumber > 1) openExercise(currentExerciseNumber - 1);
+  if (currentExerciseDisplayIdx === null) return;
+  openExerciseByDisplay(Math.max(1, currentExerciseDisplayIdx - 1));
 });
 exNext.addEventListener("click", () => {
-  if (currentExerciseNumber < 15) openExercise(currentExerciseNumber + 1);
+  if (currentExerciseDisplayIdx === null) return;
+  openExerciseByDisplay(Math.min(displayToCd.length, currentExerciseDisplayIdx + 1));
 });
 
-// Wire exercise selector dropdown
 exerciseSelect.addEventListener("change", () => {
   const val = exerciseSelect.value;
   if (val === "") {
-    if (currentExerciseNumber > 0) closeExercise();
+    closeExercise();
   } else {
-    openExercise(parseInt(val, 10));
+    openExerciseByDisplay(parseInt(val, 10));
   }
 });
 
+// ── Mutual exclusion: voice and exercise video never play simultaneously ──────
+voiceAudio.addEventListener("play", () => exVideo.pause());
+exVideo.addEventListener("play",    () => voiceAudio.pause());
+
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
-/** Returns true when the event target is a text-input-like element. */
 function isTypingTarget(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
   if (!t) return false;
@@ -389,20 +433,6 @@ function isTypingTarget(e: KeyboardEvent): boolean {
   return false;
 }
 
-/**
- * Move a loop boundary by one bar in the requested direction.
- * which: "A" moves aPixel, "B" moves bPixel.
- * direction: -1 = toward start (earlier), +1 = toward end (later).
- *
- * "Priming" behaviour:
- *   - If the boundary is null and the move is the natural expand direction
- *     (A goes left = -1, B goes right = +1), set to nearest bar first.
- *   - Shift-shrink with an unset boundary is a no-op (nothing to shrink).
- *
- * Clamping:
- *   - aPixel >= startingPixel, bPixel <= endingPixel.
- *   - aPixel < bPixel (refuse a move that would invert or equalise).
- */
 function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
   if (!sync || !score) return;
   const bars = score.bars;
@@ -410,7 +440,6 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
 
   if (which === "A") {
     if (aPixel === null) {
-      // Priming: only if expanding (direction = -1)
       if (direction !== -1) return;
       const currentPixel = sync.timeToPixel(video.currentTime);
       const nb = sync.nearestBar(currentPixel);
@@ -420,37 +449,23 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
       updateMarkersUI();
       return;
     }
-
-    // Walk bars in direction
     let bestIdx = -1;
     if (direction === -1) {
-      // Find the largest bar pixel < current aPixel
       for (let i = bars.length - 1; i >= 0; i--) {
         if (bars[i]! < aPixel) { bestIdx = i; break; }
       }
     } else {
-      // Find the smallest bar pixel > current aPixel
       for (let i = 0; i < bars.length; i++) {
         if (bars[i]! > aPixel) { bestIdx = i; break; }
       }
     }
-
-    if (bestIdx === -1) return; // already at boundary
-
+    if (bestIdx === -1) return;
     let candidate = bars[bestIdx]!;
-
-    // Clamp at startingPixel
     candidate = Math.max(score.startingPixel, candidate);
-
-    // Shrink guard: must remain < bPixel (if B is set)
     if (bPixel !== null && candidate >= bPixel) return;
-
     aPixel = candidate;
-
   } else {
-    // which === "B"
     if (bPixel === null) {
-      // Priming: only if expanding (direction = +1)
       if (direction !== 1) return;
       const currentPixel = sync.timeToPixel(video.currentTime);
       const nb = sync.nearestBar(currentPixel);
@@ -460,31 +475,20 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
       updateMarkersUI();
       return;
     }
-
-    // Walk bars in direction
     let bestIdx = -1;
     if (direction === 1) {
-      // Find the smallest bar pixel > current bPixel
       for (let i = 0; i < bars.length; i++) {
         if (bars[i]! > bPixel) { bestIdx = i; break; }
       }
     } else {
-      // Find the largest bar pixel < current bPixel
       for (let i = bars.length - 1; i >= 0; i--) {
         if (bars[i]! < bPixel) { bestIdx = i; break; }
       }
     }
-
-    if (bestIdx === -1) return; // already at boundary
-
+    if (bestIdx === -1) return;
     let candidate = bars[bestIdx]!;
-
-    // Clamp at endingPixel
     candidate = Math.min(score.endingPixel, candidate);
-
-    // Shrink guard: must remain > aPixel (if A is set)
     if (aPixel !== null && candidate <= aPixel) return;
-
     bPixel = candidate;
   }
 
@@ -492,25 +496,18 @@ function shiftLoopBoundary(which: "A" | "B", direction: -1 | 1): void {
   updateMarkersUI();
 }
 
-/**
- * Seek video to the previous or next bar boundary.
- * direction: -1 = previous bar, +1 = next bar.
- */
 function seekBars(direction: -1 | 1): void {
   if (!sync || !score) return;
   const bars = score.bars;
   if (bars.length === 0) return;
 
   const currentPixel = sync.timeToPixel(video.currentTime);
-
   let targetPx: number | null = null;
   if (direction === -1) {
-    // Previous: largest bar < currentPixel
     for (let i = bars.length - 1; i >= 0; i--) {
       if (bars[i]! < currentPixel - 1) { targetPx = bars[i]!; break; }
     }
   } else {
-    // Next: smallest bar > currentPixel
     for (let i = 0; i < bars.length; i++) {
       if (bars[i]! > currentPixel + 1) { targetPx = bars[i]!; break; }
     }
@@ -521,23 +518,23 @@ function seekBars(direction: -1 | 1): void {
 }
 
 function handleKey(e: KeyboardEvent): void {
+  // Only active in song view
+  if (!currentMeta) return;
   if (isTypingTarget(e)) return;
 
-  // Esc closes the exercise view; no other hotkeys work while exercise is open
-  if (e.code === "Escape" && currentExerciseNumber > 0) {
+  if (e.code === "Escape" && currentExerciseDisplayIdx !== null) {
     closeExercise();
     e.preventDefault();
     return;
   }
 
-  // While exercise view is open, suppress all other song hotkeys
-  if (currentExerciseNumber > 0) return;
+  if (currentExerciseDisplayIdx !== null) return;
 
   switch (e.code) {
     case "Space":
       e.preventDefault();
       if (video.paused) {
-        video.play().catch(() => { /* ignore AbortError */ });
+        video.play().catch(() => {});
       } else {
         video.pause();
       }
@@ -546,10 +543,8 @@ function handleKey(e: KeyboardEvent): void {
     case "BracketLeft":
       e.preventDefault();
       if (e.shiftKey) {
-        // Shift+[ : move A toward end (shrinks loop from left)
         shiftLoopBoundary("A", 1);
       } else {
-        // [ : move A toward start (expand loop left / prime A)
         shiftLoopBoundary("A", -1);
       }
       break;
@@ -557,10 +552,8 @@ function handleKey(e: KeyboardEvent): void {
     case "BracketRight":
       e.preventDefault();
       if (e.shiftKey) {
-        // Shift+] : move B toward start (shrinks loop from right)
         shiftLoopBoundary("B", -1);
       } else {
-        // ] : move B toward end (expand loop right / prime B)
         shiftLoopBoundary("B", 1);
       }
       break;
@@ -597,131 +590,281 @@ function handleKey(e: KeyboardEvent): void {
 
 window.addEventListener("keydown", handleKey);
 
-// ── Orientation ───────────────────────────────────────────────────────────────
-function updateOrientationButtons(): void {
-  btnVert.classList.toggle("active", orientation === "vert");
-  btnHoriz.classList.toggle("active", orientation === "horiz");
+// ── Back-to-home button ───────────────────────────────────────────────────────
+backToHome.addEventListener("click", () => {
+  location.hash = "#/";
+});
+
+// ── Show / hide player vs home ────────────────────────────────────────────────
+
+function showHome(): void {
+  homeView.hidden = false;
+  header.hidden = true;
+  mainEl.hidden = true;
+  playbackCtls.hidden = true;
+  tabRowEl.hidden = true;
 }
 
-function setOrientation(o: Orientation): void {
-  orientation = o;
-  localStorage.setItem(ORIENTATION_KEY, o);
+function showPlayer(): void {
+  homeView.hidden = true;
+  header.hidden = false;
+  mainEl.hidden = false;
+  playbackCtls.hidden = false;
+  tabRowEl.hidden = false;
+}
+
+// ── State cleanup: dispose previous song ──────────────────────────────────────
+
+function disposeSong(): void {
+  // Stop and clear video
+  video.pause();
+  video.removeAttribute("src");
+  video.load();
+  video.style.display = "";
+
+  // Close any open exercise
+  closeExercise();
+
+  // Dispose TabScroller (stops RAF + ResizeObserver)
+  if (tabScroller) {
+    tabScroller.dispose();
+    tabScroller = null;
+    // Remove injected .tab-viewport from tab-row
+    const vp = tabRow.querySelector(".tab-viewport");
+    if (vp) vp.remove();
+  }
+
+  // Nullify sync
+  sync = null;
+  score = null;
+
+  // Reset chord state
+  chordsById.clear();
+  nowChordId = null;
+  nextChordId = null;
+  lastNextChord = null;
+
+  // Reset A/B loop state
+  aPixel = null;
+  bPixel = null;
+  loopOn = false;
+  updateMarkersUI();
+
+  // Reset exercise index maps
+  cdToDisplay.clear();
+  displayToCd.length = 0;
+
+  // Reset exercise UI state
+  currentExerciseDisplayIdx = null;
+  currentExerciseCdNum = null;
+
+  // Dispose diagram renderers
+  if (nowDiagram) { nowDiagram = null; }
+  if (nextDiagram) { nextDiagram = null; }
+
+  // Clear all-chords row
+  allChords.innerHTML = "";
+
+  // Clear exercise dropdown options (keep default placeholder)
+  exerciseSelect.innerHTML = '<option value="">Choose exercise…</option>';
+
+  // Reset NOW/NEXT labels
+  nowName.textContent = "—";
+  nextName.textContent = "—";
+  nowCanvas.style.borderColor = "";
+
+  // Reset voiceAudio
+  voiceAudio.pause();
+  voiceAudio.src = "";
+  voiceAudio.onended = null;
+
+  currentMeta = null;
+}
+
+// ── Home screen rendering ─────────────────────────────────────────────────────
+
+function renderHome(): void {
+  disposeSong();
+  showHome();
+
+  const grid = homeView.querySelector(".song-grid")!;
+  grid.innerHTML = "";
+
+  for (const song of SONGS) {
+    const btn = document.createElement("button");
+    btn.className = "song-card";
+    btn.dataset["slug"] = song.slug;
+    btn.innerHTML = `
+      <div class="song-card-title">${song.title}</div>
+      <div class="song-card-artist">${song.artist}</div>
+      <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
+    `;
+    btn.addEventListener("click", () => {
+      location.hash = `#/song/${song.slug}`;
+    });
+    grid.appendChild(btn);
+  }
+}
+
+// ── Song rendering ────────────────────────────────────────────────────────────
+
+async function renderSong(meta: SongMeta): Promise<void> {
+  // Clean up any previous song
+  disposeSong();
+  showPlayer();
+
+  currentMeta = meta;
+
+  // Update header title
+  songTitleEl.textContent = meta.title;
+
+  // Set video source
+  video.src = meta.videoUrl;
+  video.load();
+
+  // Apply speed rate after metadata loads
+  video.addEventListener("loadedmetadata", () => applyRate(initialRate), { once: true });
+
+  // Create chord diagram renderers
+  nowDiagram  = new ChordDiagram(nowCanvas,  meta.chordImageUrl);
+  nextDiagram = new ChordDiagram(nextCanvas, meta.chordImageUrl);
+
   updateOrientationButtons();
-  // Re-render both previews with new orientation
-  renderPreviews(nowChordId, nextChordId);
-}
 
-btnVert.addEventListener("click",  () => setOrientation("vert"));
-btnHoriz.addEventListener("click", () => setOrientation("horiz"));
-
-// ── NOW / NEXT preview rendering ──────────────────────────────────────────────
-function renderPreviews(curId: number | null, nxtId: number | null): void {
-  // NOW
-  const nowChord = curId !== null ? chordsById.get(curId) ?? null : null;
-  if (nowChord) {
-    nowName.textContent = displayChordName(nowChord.name);
-    const rect = orientation === "vert" ? nowChord.picRect : nowChord.picRectUS;
-    nowDiagram.render(rect);
-    const [r, g, b] = nowChord.rgbHighlight;
-    nowCanvas.style.borderColor = `rgb(${r},${g},${b})`;
-  } else {
-    nowName.textContent = "—";
-    nowDiagram.clear();
-    nowCanvas.style.borderColor = "";
-  }
-
-  // NEXT
-  const nextChord = nxtId !== null ? chordsById.get(nxtId) ?? null : null;
-  if (nextChord) {
-    nextName.textContent = displayChordName(nextChord.name);
-    const rect = orientation === "vert" ? nextChord.picRect : nextChord.picRectUS;
-    nextDiagram.render(rect);
-  } else {
-    nextName.textContent = "—";
-    nextDiagram.clear();
-  }
-}
-
-// ── Callback from TabScroller ─────────────────────────────────────────────────
-function handleChordsChange(curId: number | null, nxtId: number | null): void {
-  nowChordId    = curId;
-  nextChordId   = nxtId;
-  lastNextChord = nxtId;
-  renderPreviews(curId, nxtId);
-}
-
-// ── Initialise ────────────────────────────────────────────────────────────────
-async function init(): Promise<void> {
-  // Populate exercise selector dropdown (15 exercises for Hey Joe)
-  for (let i = 1; i <= 15; i++) {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = `Exercise ${i}`;
-    exerciseSelect.appendChild(opt);
-  }
-
-  // Load chord sprite sheet into both diagrams
+  // Load chord sprite sheets
   await Promise.all([nowDiagram.load(), nextDiagram.load()]);
 
   // Load chord database
-  const db = await loadChordDb(CHD_URL);
+  const db = await loadChordDb(meta.chdUrl);
   const chords = db.chords;
 
-  console.assert(chords.length === 11, `CHD parser self-test: expected 11 chords, got ${chords.length}`);
-  console.log(`CHD parser self-test: ${chords.length} chords loaded`);
+  console.log(`[${meta.slug}] ${chords.length} chords loaded`);
 
-  // Populate lookup map
   for (const chord of chords) {
     chordsById.set(chord.id, chord);
   }
 
-  // Build all-chords buttons (play sample only — no latching)
+  // Build all-chords buttons
+  const wavBase = `${meta.rawDir}chords/`;
   for (const chord of chords) {
     const btn = document.createElement("button");
     btn.className = "chord-btn";
     btn.textContent = displayChordName(chord.name);
     btn.title = chord.comments || displayChordName(chord.name);
     btn.addEventListener("click", () => {
-      playSample(WAV_BASE + chord.sound);
-      // Show this chord in NOW preview; preserve whatever NEXT currently shows.
-      // (Overridden by the next playback tick when video is playing.)
+      playSample(wavBase + chord.sound);
       nowChordId = chord.id;
       renderPreviews(chord.id, lastNextChord);
     });
     allChords.appendChild(btn);
   }
 
-  updateOrientationButtons();
-
   // Load SCO score file
-  const loadedScore = await loadScore(SCO_URL);
+  const loadedScore = await loadScore(meta.scoUrl);
   score = loadedScore;
 
-  // SCO parser self-test
-  console.log(`SCO parser self-test: ${loadedScore.events.length} events, ${loadedScore.bars.length} bars`);
-  console.assert(loadedScore.events.length === 534, `SCO self-test: expected 534 events, got ${loadedScore.events.length}`);
+  console.log(`[${meta.slug}] SCO: ${loadedScore.events.length} events, ${loadedScore.bars.length} bars`);
 
-  // Create ScoreSync helper for A/B loop math
+  // Build CD-number → display-index mappings
+  const sortedDiffs = [...loadedScore.difficulties].sort((a, b) => a.rect.x - b.rect.x);
+  const seen = new Set<number>();
+  for (const d of sortedDiffs) {
+    if (!seen.has(d.exercice)) {
+      seen.add(d.exercice);
+      cdToDisplay.set(d.exercice, displayToCd.length + 1);
+      displayToCd.push(d.exercice);
+    }
+  }
+  // Append orphan exercises not referenced by any hotspot
+  for (let cd = 1; cd <= meta.exerciseCount; cd++) {
+    if (!seen.has(cd)) {
+      cdToDisplay.set(cd, displayToCd.length + 1);
+      displayToCd.push(cd);
+    }
+  }
+
+  console.log(`[${meta.slug}] displayToCd:`, displayToCd);
+
+  // Populate exercise dropdown
+  for (let i = 1; i <= displayToCd.length; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `Exercise ${i}`;
+    exerciseSelect.appendChild(opt);
+  }
+
+  // Create ScoreSync helper
   sync = new ScoreSync(loadedScore, video);
 
   // Create TabScroller
   tabScroller = new TabScroller(tabRow, {
     score: loadedScore,
-    pngUrl: TAB_URL,
+    pngUrl: meta.tabImageUrl,
     video,
     onChordsChange: handleChordsChange,
-    onDifficultyClick: (exercice, _sound) => {
-      openExercise(exercice);
+    onDifficultyClick: (cdNum) => {
+      const displayIdx = cdToDisplay.get(cdNum);
+      if (displayIdx !== undefined) openExerciseByDisplay(displayIdx);
     },
   });
 
-  // Render difficulty hotspots from the SCO data
-  tabScroller.setDifficulties(loadedScore.difficulties);
+  tabScroller.setDifficulties(loadedScore.difficulties, {
+    labelForExercice: (cd) => String(cdToDisplay.get(cd) ?? cd),
+  });
 
-  // Initial marker UI render (clears buttons, disables loop toggle)
+  // Initial marker UI
   updateMarkersUI();
+
+  // Start loop RAF
+  startLoopRaf();
 }
 
-init().catch((err) => {
-  console.error("Init failed:", err);
+// ── Hash router ───────────────────────────────────────────────────────────────
+
+function parseHash(): { view: "home" } | { view: "song"; slug: string } | { view: "redirect" } {
+  const hash = location.hash;
+  if (hash === "" || hash === "#" || hash === "#/") {
+    return { view: "home" };
+  }
+  const songMatch = hash.match(/^#\/song\/([a-z0-9-]+)$/);
+  if (songMatch) {
+    return { view: "song", slug: songMatch[1]! };
+  }
+  return { view: "redirect" };
+}
+
+async function route(): Promise<void> {
+  const parsed = parseHash();
+
+  if (parsed.view === "redirect") {
+    location.hash = "#/";
+    return;
+  }
+
+  if (parsed.view === "home") {
+    renderHome();
+    return;
+  }
+
+  // Song view
+  const meta = getSongBySlug(parsed.slug);
+  if (!meta) {
+    console.warn(`Unknown song slug: ${parsed.slug}, redirecting home`);
+    location.hash = "#/";
+    return;
+  }
+
+  try {
+    await renderSong(meta);
+  } catch (err) {
+    console.error(`Failed to load song ${parsed.slug}:`, err);
+    location.hash = "#/";
+  }
+}
+
+window.addEventListener("hashchange", () => {
+  route().catch(console.error);
 });
+
+// Initial route on page load
+route().catch(console.error);

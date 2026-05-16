@@ -391,8 +391,14 @@ export class TabScroller {
    * Render difficulty hotspot overlays inside the tab strip.
    * Idempotent: removes any previously-rendered `.difficulty-hotspot` elements
    * before re-creating them.
+   *
+   * @param opts.labelForExercice — optional function mapping CD exercise number
+   *   to the display label string used in the tooltip. Defaults to the raw CD number.
    */
-  setDifficulties(items: Difficulty[]): void {
+  setDifficulties(
+    items: Difficulty[],
+    opts?: { labelForExercice?: (cdNum: number) => string },
+  ): void {
     // Remove previous hotspots
     this.strip.querySelectorAll(".difficulty-hotspot").forEach((el) => el.remove());
 
@@ -408,7 +414,10 @@ export class TabScroller {
       el.style.border     = `1px solid rgba(${r},${g},${b},0.65)`;
       el.dataset["exercice"] = String(item.exercice);
       el.dataset["sound"]    = item.sound;
-      el.title = `Hard passage → exercise ${item.exercice} (click to open)`;
+      const label = opts?.labelForExercice
+        ? opts.labelForExercice(item.exercice)
+        : String(item.exercice);
+      el.title = `Hard passage → exercise ${label} (click to open)`;
 
       this.strip.appendChild(el);
     }

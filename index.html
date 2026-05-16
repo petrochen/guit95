@@ -3,13 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Guit95 — Hey Joe</title>
+    <title>Guit95 Modern</title>
   </head>
   <body>
 
-    <!-- Header -->
-    <header id="header">
-      <h1>Guit95 — Hey Joe</h1>
+    <!-- Home screen — shown when hash is "" or "#/" -->
+    <div id="home-view" hidden>
+      <h1 class="home-title">Guit95 — Choose a song</h1>
+      <div class="song-grid">
+        <!-- 7 cards injected by main.ts renderHome() -->
+      </div>
+    </div>
+
+    <!-- Player header — shown when a song is active -->
+    <header id="header" hidden>
+      <button id="back-to-home" type="button" class="chord-btn">&#8592; Library</button>
+      <h1 id="song-title">—</h1>
       <select id="exercise-select">
         <option value="">Choose exercise…</option>
       </select>
@@ -20,11 +29,10 @@
     </header>
 
     <!-- Main: video left, panel right -->
-    <main id="main">
+    <main id="main" hidden>
       <div id="video-pane">
         <video
           id="player"
-          src="/assets/heyjoe/hjoe.mp4"
           controls
         ></video>
         <div id="exercise-pane" hidden>
@@ -37,7 +45,6 @@
             </div>
           </div>
           <video id="ex-video" controls></video>
-          <img id="ex-tab" alt="Exercise tab" hidden />
           <div class="ex-bottom">
             <button id="ex-voice"  class="chord-btn" type="button">&#9654; Voice</button>
             <button id="ex-replay" class="chord-btn" type="button">&#9654; Video</button>
@@ -62,13 +69,13 @@
           </div>
         </div>
         <div class="all-chords" id="all-chords">
-          <!-- 11 buttons injected by main.ts -->
+          <!-- chord buttons injected by main.ts -->
         </div>
       </div>
     </main>
 
     <!-- Playback controls: speed + A/B loop -->
-    <div id="playback-controls">
+    <div id="playback-controls" hidden>
       <label class="speed-control">
         <span class="ctrl-label">Speed</span>
         <input id="speed-slider" type="range" min="0.25" max="1.5" step="0.05" value="1" />
@@ -89,8 +96,11 @@
     </div>
 
     <!-- Tab scroller -->
-    <div id="tab-row">
-      <!-- TabScroller injected by main.ts -->
+    <div id="tab-row" hidden>
+      <!-- TabScroller injects .tab-viewport here -->
+      <div id="exercise-tab-row" hidden>
+        <img id="exercise-tab-img" alt="Exercise tab" />
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>
