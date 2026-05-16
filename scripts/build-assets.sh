@@ -38,6 +38,9 @@ SLUGS=("${@:-${ALL_SLUGS[@]}}")
 
 START_TIME=$SECONDS
 
+JINGLES_SRC="$GUITAR_SRC/TITLE"
+JINGLES_DEST="$PUBLIC_ASSETS/jingles"
+
 # ── Sanity checks ─────────────────────────────────────────────────────────────
 if [[ ! -d "$CD_ROOT" ]]; then
   echo "ERROR: CD not found at $CD_ROOT — mount the Guitar CD and retry." >&2
@@ -65,6 +68,22 @@ get_song_def() {
   done
   return 1
 }
+
+# ── Jingles: copy JGL-*.WAV from CD (runs regardless of slug args) ───────────
+echo "==> jingles"
+mkdir -p "$JINGLES_DEST"
+for WAV in "$JINGLES_SRC"/JGL-*.WAV; do
+  [[ -f "$WAV" ]] || continue
+  BASE=$(basename "$WAV")
+  LC_BASE=$(lc "$BASE")
+  DST="$JINGLES_DEST/$LC_BASE"
+  if [[ ! -f "$DST" || "$DST" -ot "$WAV" ]]; then
+    cp "$WAV" "$DST"
+    echo "    copied: $BASE -> $LC_BASE"
+  else
+    echo "    (skipped — $LC_BASE up-to-date)"
+  fi
+done
 
 # ── Per-slug processing ───────────────────────────────────────────────────────
 for SLUG in "${SLUGS[@]}"; do

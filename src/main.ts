@@ -683,6 +683,21 @@ function disposeSong(): void {
 
 // ── Home screen rendering ─────────────────────────────────────────────────────
 
+// Single reusable audio element for jingles — mutex via src/play.
+const jingleAudio = new Audio();
+
+function playJingle(url: string): void {
+  jingleAudio.pause();
+  jingleAudio.src = url;
+  jingleAudio.currentTime = 0;
+  jingleAudio.play().catch(() => {});
+}
+
+function stopJingle(): void {
+  jingleAudio.pause();
+  jingleAudio.src = "";
+}
+
 function renderHome(): void {
   disposeSong();
   showHome();
@@ -694,13 +709,18 @@ function renderHome(): void {
     const btn = document.createElement("button");
     btn.className = "song-card";
     btn.dataset["slug"] = song.slug;
+    btn.title = "Hover to hear the artist jingle";
     btn.innerHTML = `
       <div class="song-card-title">${song.title}</div>
       <div class="song-card-artist">${song.artist}</div>
       <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
     `;
+    btn.addEventListener("mouseenter", () => {
+      playJingle(song.jingleUrl);
+    });
     btn.addEventListener("click", () => {
-      location.hash = `#/song/${song.slug}`;
+      playJingle(song.jingleUrl);
+      setTimeout(() => { location.hash = `#/song/${song.slug}`; }, 0);
     });
     grid.appendChild(btn);
   }
@@ -846,7 +866,9 @@ async function route(): Promise<void> {
     return;
   }
 
-  // Song view
+  // Song view — navigating away from home, stop any playing jingle
+  stopJingle();
+
   const meta = getSongBySlug(parsed.slug);
   if (!meta) {
     console.warn(`Unknown song slug: ${parsed.slug}, redirecting home`);

@@ -12,8 +12,10 @@ export type SongMeta = {
   chordImageUrl: string;  // /assets/<slug>/raw/chords/<picturefile>.png
   tabImageUrl: string;    // /assets/<slug>/raw/play/<scorefile>.png
   exerciseCount: number;  // real exercises only (folder 0 excluded)
+  jingleUrl: string;      // /assets/jingles/<file>.wav
 };
 
+// Order matches the original CD title screen (TITLE1.TIT page 1 then TITLE2.TIT page 2).
 export const SONGS: SongMeta[] = [
   {
     slug: "heyjoe",
@@ -26,18 +28,7 @@ export const SONGS: SongMeta[] = [
     chordImageUrl: "/assets/heyjoe/raw/chords/heyjoe2.png",
     tabImageUrl: "/assets/heyjoe/raw/play/heyj-b2.png",
     exerciseCount: 16,
-  },
-  {
-    slug: "life",
-    title: "Life by the Drop",
-    artist: "Stevie Ray Vaughan",
-    videoUrl: "/assets/life/life.mp4",
-    rawDir: "/assets/life/raw/",
-    scoUrl: "/assets/life/raw/play/life.sco",
-    chdUrl: "/assets/life/raw/chords/chords.chd",
-    chordImageUrl: "/assets/life/raw/chords/lbtd.png",
-    tabImageUrl: "/assets/life/raw/play/lbtdbar3.png",
-    exerciseCount: 7,
+    jingleUrl: "/assets/jingles/jgl-jh01.wav",
   },
   {
     slug: "woman",
@@ -50,30 +41,20 @@ export const SONGS: SongMeta[] = [
     chordImageUrl: "/assets/woman/raw/chords/woman2.png",
     tabImageUrl: "/assets/woman/raw/play/nwnc-b2.png",
     exerciseCount: 13,
+    jingleUrl: "/assets/jingles/jgl-bm01.wav",
   },
   {
-    slug: "blowin",
-    title: "Blowin' in the Wind",
-    artist: "Bob Dylan",
-    videoUrl: "/assets/blowin/blowin.mp4",
-    rawDir: "/assets/blowin/raw/",
-    scoUrl: "/assets/blowin/raw/play/bitw.sco",
-    chdUrl: "/assets/blowin/raw/chords/chords.chd",
-    chordImageUrl: "/assets/blowin/raw/chords/blowin.png",
-    tabImageUrl: "/assets/blowin/raw/play/bitw-b2.png",
+    slug: "life",
+    title: "Life by the Drop",
+    artist: "Stevie Ray Vaughan",
+    videoUrl: "/assets/life/life.mp4",
+    rawDir: "/assets/life/raw/",
+    scoUrl: "/assets/life/raw/play/life.sco",
+    chdUrl: "/assets/life/raw/chords/chords.chd",
+    chordImageUrl: "/assets/life/raw/chords/lbtd.png",
+    tabImageUrl: "/assets/life/raw/play/lbtdbar3.png",
     exerciseCount: 7,
-  },
-  {
-    slug: "dust",
-    title: "Dust in the Wind",
-    artist: "Kansas",
-    videoUrl: "/assets/dust/dust.mp4",
-    rawDir: "/assets/dust/raw/",
-    scoUrl: "/assets/dust/raw/play/ditw.sco",
-    chdUrl: "/assets/dust/raw/chords/chords.chd",
-    chordImageUrl: "/assets/dust/raw/chords/dust.png",
-    tabImageUrl: "/assets/dust/raw/play/ditw-b2.png",
-    exerciseCount: 9,
+    jingleUrl: "/assets/jingles/jgl-rv01.wav",
   },
   {
     slug: "sweet",
@@ -86,6 +67,33 @@ export const SONGS: SongMeta[] = [
     chordImageUrl: "/assets/sweet/raw/chords/sha.png",
     tabImageUrl: "/assets/sweet/raw/play/sha-b4.png",
     exerciseCount: 12,
+    jingleUrl: "/assets/jingles/jgl-ls01.wav",
+  },
+  {
+    slug: "dust",
+    title: "Dust in the Wind",
+    artist: "Kansas",
+    videoUrl: "/assets/dust/dust.mp4",
+    rawDir: "/assets/dust/raw/",
+    scoUrl: "/assets/dust/raw/play/ditw.sco",
+    chdUrl: "/assets/dust/raw/chords/chords.chd",
+    chordImageUrl: "/assets/dust/raw/chords/dust.png",
+    tabImageUrl: "/assets/dust/raw/play/ditw-b2.png",
+    exerciseCount: 9,
+    jingleUrl: "/assets/jingles/jgl-ks01.wav",
+  },
+  {
+    slug: "blowin",
+    title: "Blowin' in the Wind",
+    artist: "Bob Dylan",
+    videoUrl: "/assets/blowin/blowin.mp4",
+    rawDir: "/assets/blowin/raw/",
+    scoUrl: "/assets/blowin/raw/play/bitw.sco",
+    chdUrl: "/assets/blowin/raw/chords/chords.chd",
+    chordImageUrl: "/assets/blowin/raw/chords/blowin.png",
+    tabImageUrl: "/assets/blowin/raw/play/bitw-b2.png",
+    exerciseCount: 7,
+    jingleUrl: "/assets/jingles/jgl-bd01.wav",
   },
   {
     slug: "wild",
@@ -98,6 +106,7 @@ export const SONGS: SongMeta[] = [
     chordImageUrl: "/assets/wild/raw/chords/wild.png",
     tabImageUrl: "/assets/wild/raw/play/ww-b3.png",
     exerciseCount: 10,
+    jingleUrl: "/assets/jingles/jgl-cs01.wav",
   },
 ];
 
