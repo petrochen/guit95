@@ -28,7 +28,22 @@ export type Chord = {
   sound: string;       // WAV filename, trimmed
   comments: string;    // French label, may be empty
   rgbHighlight: [number, number, number];
+  hand?: string;       // PNG filename for hand close-up photo (relative to CHD dir)
+  avi?: number;        // frame number where chord first plays in song video (CD-defined)
 };
+
+/**
+ * Derive a hand-photo filename from a chord name when CHD doesn't specify one.
+ * Convention from CD: lowercase, strip underscores, append .png.
+ *   "C"     → "c.png"
+ *   "C_3"   → "c3.png"
+ *   "AM"    → "am.png"
+ *   "G-B"   → "g-b.png"
+ *   "E7#9"  → "e7#9.png"
+ */
+function deriveHandFilename(chordName: string): string {
+  return chordName.toLowerCase().replace(/_/g, "") + ".png";
+}
 
 export type ChordDb = {
   pictureFile: string; // relative to the CHD file directory
@@ -95,6 +110,19 @@ export async function loadChordDb(chdUrl: string): Promise<ChordDb> {
     const rgbHighlight: [number, number, number] =
       rgbRaw ? (parseRgb(rgbRaw) ?? [255, 0, 0]) : [255, 0, 0];
 
+    // Hand close-up photo: prefer explicit `hand=`, else derive from chord name.
+    // Always lowercase + .bmp→.png (Phase 1 already converts BMPs).
+    const handRaw = fields["hand"];
+    const handFile = handRaw
+      ? handRaw.trim().toLowerCase().replace(/\.bmp$/i, ".png")
+      : deriveHandFilename(name.trim());
+
+    // avi=N is CD frame number where chord first plays in the song video.
+    // Optional: only Hey Joe and Life have it. Other songs use SCO events to
+    // find first frame instead — see ScoreSync.firstFrameOfChord().
+    const aviRaw = fields["avi"];
+    const aviNum = aviRaw ? parseInt(aviRaw, 10) : NaN;
+
     chords.push({
       id,
       name: name.trim(),
@@ -103,6 +131,8 @@ export async function loadChordDb(chdUrl: string): Promise<ChordDb> {
       sound: sound.trim(),
       comments: comments.trim(),
       rgbHighlight,
+      hand: handFile,
+      ...(isFinite(aviNum) ? { avi: aviNum } : {}),
     });
   }
 

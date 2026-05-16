@@ -27,6 +27,26 @@ export class ScoreSync {
     return this.pixelToFrame(pixel) / fps;
   }
 
+  /**
+   * Find the first event in the score where `chord=chordId`. Returns the
+   * frame number, or null if this chord never appears.
+   * Used by "where in song?" jump on chord buttons — works for all songs
+   * (CD's `avi=` field is only on Hey Joe + Life).
+   */
+  firstFrameOfChord(chordId: number): number | null {
+    for (const ev of this.score.events) {
+      if (ev.chord === chordId) return ev.frame;
+    }
+    return null;
+  }
+
+  /** Convert frame number → seconds. Useful for seeking from CD's avi= field. */
+  frameToTime(frame: number): number | null {
+    const fps = this.fps;
+    if (fps === null) return null;
+    return frame / fps;
+  }
+
   /** Find bar pixel closest to a source pixel. Returns bar pixel + 1-indexed bar number. */
   nearestBar(pixel: number): { pixel: number; index: number } | null {
     const bars = this.score.bars;

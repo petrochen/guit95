@@ -96,6 +96,29 @@ body {
   background: #000;
 }
 
+.preview-hand {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  margin: 8px auto 0;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #000;
+}
+.preview-hand[hidden] { display: none; }
+
+.chord-btn .where-icon {
+  display: inline-block;
+  margin-left: 4px;
+  opacity: 0.55;
+  font-size: 0.7em;
+  cursor: pointer;
+}
+.chord-btn .where-icon:hover {
+  opacity: 1;
+}
+
 .song-card-text {
   flex: 1 1 auto;
   display: flex;

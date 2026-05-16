@@ -38,6 +38,7 @@ const nowCanvas     = document.getElementById("now-canvas")!    as HTMLCanvasEle
 const nextCanvas    = document.getElementById("next-canvas")!   as HTMLCanvasElement;
 const nowName       = document.getElementById("now-name")!      as HTMLElement;
 const nextName      = document.getElementById("next-name")!     as HTMLElement;
+const nowHand       = document.getElementById("now-hand")!      as HTMLImageElement;
 const allChords     = document.getElementById("all-chords")!    as HTMLElement;
 const tabRow        = document.getElementById("tab-row")!       as HTMLElement;
 const btnVert       = document.getElementById("btn-vert")!      as HTMLButtonElement;
@@ -349,10 +350,23 @@ function renderPreviews(curId: number | null, nxtId: number | null): void {
     nowDiagram.render(rect);
     const [r, g, b] = nowChord.rgbHighlight;
     nowCanvas.style.borderColor = `rgb(${r},${g},${b})`;
+
+    // Hand close-up photo (real photo from CD) — load if present.
+    if (currentMeta && nowChord.hand) {
+      const handUrl = `${currentMeta.rawDir}chords/${nowChord.hand}`;
+      nowHand.onerror = () => { nowHand.hidden = true; };
+      nowHand.onload  = () => { nowHand.hidden = false; };
+      nowHand.src = handUrl;
+    } else {
+      nowHand.hidden = true;
+      nowHand.removeAttribute("src");
+    }
   } else {
     nowName.textContent = "—";
     nowDiagram.clear();
     nowCanvas.style.borderColor = "";
+    nowHand.hidden = true;
+    nowHand.removeAttribute("src");
   }
 
   const nextChord = nxtId !== null ? chordsById.get(nxtId) ?? null : null;
@@ -907,24 +921,58 @@ async function renderSong(meta: SongMeta): Promise<void> {
   // Load chord sprite sheets
   await Promise.all([nowDiagram.load(), nextDiagram.load()]);
 
-  // Load chord database
-  const db = await loadChordDb(meta.chdUrl);
+  // Load chord database + score in parallel so we can derive "first frame
+  // of chord" via SCO events BEFORE building chord buttons (which need that
+  // info to decide whether to show the ↪ jump icon).
+  const [db, loadedScore] = await Promise.all([
+    loadChordDb(meta.chdUrl),
+    loadScore(meta.scoUrl),
+  ]);
   const chords = db.chords;
+  score = loadedScore;
+  sync = new ScoreSync(loadedScore, video);
 
-  console.log(`[${meta.slug}] ${chords.length} chords loaded`);
+  console.log(`[${meta.slug}] ${chords.length} chords loaded, ${loadedScore.events.length} score events`);
 
   for (const chord of chords) {
     chordsById.set(chord.id, chord);
   }
 
-  // Build all-chords buttons
+  // Build all-chords buttons. Each shows the chord name; a tiny "↪" icon
+  // appears when the chord can be located in the song video (via CD's avi=
+  // field OR by scanning SCO events for the first occurrence). Clicking the
+  // icon jumps the video to that frame.
   const wavBase = `${meta.rawDir}chords/`;
   for (const chord of chords) {
     const btn = document.createElement("button");
     btn.className = "chord-btn";
-    btn.textContent = displayChordName(chord.name);
     btn.title = chord.comments || displayChordName(chord.name);
-    btn.addEventListener("click", () => {
+
+    // Resolve "first frame in song" — prefer CD's explicit avi= field,
+    // else scan SCO events for the first occurrence of this chord id.
+    // (sync may still be null at this point if score loads after chords —
+    //  in that case fall back to undefined and live without the jump icon.)
+    const firstFrame = (chord.avi !== undefined)
+      ? chord.avi
+      : (sync?.firstFrameOfChord(chord.id) ?? null);
+
+    btn.innerHTML = `<span class="chord-btn-label">${displayChordName(chord.name)}</span>` +
+      (firstFrame !== null
+        ? ` <span class="where-icon" title="Show in song video">↪</span>`
+        : "");
+
+    btn.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains("where-icon")) {
+        // Jump video to chord's first occurrence — no sample, no NOW change.
+        const t = sync?.frameToTime(firstFrame!);
+        if (t !== null && t !== undefined) {
+          video.currentTime = Math.max(0, t);
+        }
+        e.stopPropagation();
+        return;
+      }
+      // Normal click: play sample + show in NOW
       playSample(wavBase + chord.sound);
       nowChordId = chord.id;
       renderPreviews(chord.id, lastNextChord);
@@ -932,13 +980,7 @@ async function renderSong(meta: SongMeta): Promise<void> {
     allChords.appendChild(btn);
   }
 
-  // Load SCO score file
-  const loadedScore = await loadScore(meta.scoUrl);
-  score = loadedScore;
-
-  console.log(`[${meta.slug}] SCO: ${loadedScore.events.length} events, ${loadedScore.bars.length} bars`);
-
-  // Build CD-number → display-index mappings
+  // Build CD-number → display-index mappings (uses already-loaded score)
   const sortedDiffs = [...loadedScore.difficulties].sort((a, b) => a.rect.x - b.rect.x);
   const seen = new Set<number>();
   for (const d of sortedDiffs) {
@@ -961,10 +1003,7 @@ async function renderSong(meta: SongMeta): Promise<void> {
   // Populate exercise dropdown (Feature 4: ✓ markers)
   refreshExerciseDropdown();
 
-  // Create ScoreSync helper
-  sync = new ScoreSync(loadedScore, video);
-
-  // Create TabScroller
+  // Create TabScroller (sync was created above, after parallel load)
   tabScroller = new TabScroller(tabRow, {
     score: loadedScore,
     pngUrl: meta.tabImageUrl,
