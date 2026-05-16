@@ -73,6 +73,28 @@ const settingDefaultVolVal  = document.getElementById("setting-default-volume-va
 const settingResetProgress  = document.getElementById("setting-reset-progress")! as HTMLButtonElement;
 const settingsBtn           = document.getElementById("settings-btn")! as HTMLButtonElement;
 
+// ── Phase 9b: Lyrics + About overlay refs ───────────────────────────────────
+const lyricsBtn      = document.getElementById("lyrics-btn")!    as HTMLButtonElement;
+const lyricsOverlay  = document.getElementById("lyrics-overlay")!;
+const lyricsClose    = document.getElementById("lyrics-close")!  as HTMLButtonElement;
+const lyricsImg      = document.getElementById("lyrics-img")!    as HTMLImageElement;
+const lyricsTitle    = document.getElementById("lyrics-title")!  as HTMLElement;
+const lyricsPageInfo = document.getElementById("lyrics-pageinfo")! as HTMLElement;
+const lyricsPrev     = document.getElementById("lyrics-prev")!   as HTMLButtonElement;
+const lyricsNext     = document.getElementById("lyrics-next")!   as HTMLButtonElement;
+
+const aboutOverlay   = document.getElementById("about-overlay")!;
+const aboutClose     = document.getElementById("about-close")!   as HTMLButtonElement;
+const aboutImg       = document.getElementById("about-img")!     as HTMLImageElement;
+const aboutPageInfo  = document.getElementById("about-pageinfo")! as HTMLElement;
+const aboutPrev      = document.getElementById("about-prev")!    as HTMLButtonElement;
+const aboutNext      = document.getElementById("about-next")!    as HTMLButtonElement;
+const homeAboutBtn   = document.getElementById("home-about-btn")! as HTMLButtonElement;
+
+let lyricsPage = 1;   // 1-based
+let aboutPage  = 1;   // 1-based, 1..6
+const ABOUT_PAGES = 6;
+
 // ── Speed controls ─────────────────────────────────────────────────────────────
 const speedSlider  = document.getElementById("speed-slider")!  as HTMLInputElement;
 const speedValue   = document.getElementById("speed-value")!   as HTMLElement;
@@ -629,13 +651,12 @@ helpOverlay.addEventListener("click", (e) => {
 function handleKey(e: KeyboardEvent): void {
   if (isTypingTarget(e)) return;
 
-  // Escape: close help (highest priority) or close exercise
+  // Escape: close overlays in priority order, then close exercise
   if (e.code === "Escape") {
-    if (!helpOverlay.hasAttribute("hidden")) {
-      closeHelp();
-      e.preventDefault();
-      return;
-    }
+    if (!lyricsOverlay.hasAttribute("hidden"))   { closeLyrics();   e.preventDefault(); return; }
+    if (!aboutOverlay.hasAttribute("hidden"))    { closeAbout();    e.preventDefault(); return; }
+    if (!settingsOverlay.hasAttribute("hidden")) { /* settings has its own close */ }
+    if (!helpOverlay.hasAttribute("hidden"))     { closeHelp();     e.preventDefault(); return; }
     if (currentExerciseDisplayIdx !== null) {
       closeExercise();
       e.preventDefault();
@@ -647,6 +668,13 @@ function handleKey(e: KeyboardEvent): void {
   if (e.code === "Slash" && e.shiftKey) {
     e.preventDefault();
     openHelp();
+    return;
+  }
+
+  // W — open lyrics (player view only)
+  if (e.code === "KeyW" && currentMeta && currentExerciseDisplayIdx === null) {
+    e.preventDefault();
+    openLyrics();
     return;
   }
 
@@ -1025,6 +1053,67 @@ async function renderSong(meta: SongMeta): Promise<void> {
   // Start loop RAF
   startLoopRaf();
 }
+
+// ── Phase 9b: Lyrics overlay ─────────────────────────────────────────────────
+function openLyrics(): void {
+  if (!currentMeta) return;
+  lyricsPage = 1;
+  showLyricsPage();
+  lyricsOverlay.removeAttribute("hidden");
+}
+
+function closeLyrics(): void {
+  lyricsOverlay.setAttribute("hidden", "");
+}
+
+function showLyricsPage(): void {
+  if (!currentMeta) return;
+  const total = currentMeta.wordsCount;
+  if (lyricsPage < 1) lyricsPage = 1;
+  if (lyricsPage > total) lyricsPage = total;
+  const num = String(lyricsPage).padStart(2, "0");
+  lyricsImg.src = `${currentMeta.rawDir}words/words${num}.png`;
+  lyricsTitle.textContent = `${currentMeta.title} — Lyrics`;
+  lyricsPageInfo.textContent = `${lyricsPage} / ${total}`;
+  lyricsPrev.disabled = lyricsPage <= 1;
+  lyricsNext.disabled = lyricsPage >= total;
+}
+
+lyricsBtn.addEventListener("click", openLyrics);
+lyricsClose.addEventListener("click", closeLyrics);
+lyricsPrev.addEventListener("click", () => { lyricsPage--; showLyricsPage(); });
+lyricsNext.addEventListener("click", () => { lyricsPage++; showLyricsPage(); });
+lyricsOverlay.addEventListener("click", (e) => {
+  if (e.target === lyricsOverlay) closeLyrics();
+});
+
+// ── Phase 9b: About overlay ──────────────────────────────────────────────────
+function openAbout(): void {
+  aboutPage = 1;
+  showAboutPage();
+  aboutOverlay.removeAttribute("hidden");
+}
+
+function closeAbout(): void {
+  aboutOverlay.setAttribute("hidden", "");
+}
+
+function showAboutPage(): void {
+  if (aboutPage < 1) aboutPage = 1;
+  if (aboutPage > ABOUT_PAGES) aboutPage = ABOUT_PAGES;
+  aboutImg.src = `/credits/${aboutPage}.png`;
+  aboutPageInfo.textContent = `${aboutPage} / ${ABOUT_PAGES}`;
+  aboutPrev.disabled = aboutPage <= 1;
+  aboutNext.disabled = aboutPage >= ABOUT_PAGES;
+}
+
+homeAboutBtn.addEventListener("click", openAbout);
+aboutClose.addEventListener("click", closeAbout);
+aboutPrev.addEventListener("click", () => { aboutPage--; showAboutPage(); });
+aboutNext.addEventListener("click", () => { aboutPage++; showAboutPage(); });
+aboutOverlay.addEventListener("click", (e) => {
+  if (e.target === aboutOverlay) closeAbout();
+});
 
 // ── Feature 5: Settings panel ─────────────────────────────────────────────────
 

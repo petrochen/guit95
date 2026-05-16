@@ -14,6 +14,7 @@ export type SongMeta = {
   exerciseCount: number;  // real exercises only (folder 0 excluded)
   jingleUrl: string;      // /assets/jingles/<file>.wav
   artistImageUrl: string; // /artists/<slug>.png — portrait cropped from CD title screen
+  wordsCount: number;     // number of lyrics pages (raw/words/wordsNN.png)
 };
 
 // Order matches the original CD title screen (TITLE1.TIT page 1 then TITLE2.TIT page 2).
@@ -31,6 +32,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 16,
     jingleUrl: "/assets/jingles/jgl-jh01.wav",
     artistImageUrl: "/artists/heyjoe.png",
+    wordsCount: 3,
   },
   {
     slug: "woman",
@@ -45,6 +47,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 13,
     jingleUrl: "/assets/jingles/jgl-bm01.wav",
     artistImageUrl: "/artists/woman.png",
+    wordsCount: 4,
   },
   {
     slug: "life",
@@ -59,6 +62,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 7,
     jingleUrl: "/assets/jingles/jgl-rv01.wav",
     artistImageUrl: "/artists/life.png",
+    wordsCount: 3,
   },
   {
     slug: "sweet",
@@ -73,6 +77,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 12,
     jingleUrl: "/assets/jingles/jgl-ls01.wav",
     artistImageUrl: "/artists/sweet.png",
+    wordsCount: 3,
   },
   {
     slug: "dust",
@@ -87,6 +92,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 9,
     jingleUrl: "/assets/jingles/jgl-ks01.wav",
     artistImageUrl: "/artists/dust.png",
+    wordsCount: 3,
   },
   {
     slug: "blowin",
@@ -101,6 +107,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 7,
     jingleUrl: "/assets/jingles/jgl-bd01.wav",
     artistImageUrl: "/artists/blowin.png",
+    wordsCount: 3,
   },
   {
     slug: "wild",
@@ -115,6 +122,7 @@ export const SONGS: SongMeta[] = [
     exerciseCount: 10,
     jingleUrl: "/assets/jingles/jgl-cs01.wav",
     artistImageUrl: "/artists/wild.png",
+    wordsCount: 3,
   },
 ];
 

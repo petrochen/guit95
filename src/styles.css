@@ -119,6 +119,94 @@ body {
   opacity: 1;
 }
 
+/* ── Phase 9b: home title backdrop (atmospheric, dimmed) ─────────────── */
+#home-view {
+  background-image: linear-gradient(rgba(15, 13, 18, 0.92), rgba(15, 13, 18, 0.92)),
+                    url("/titles/title1b.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.home-footer {
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.home-footer-link {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.home-footer-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* ── Phase 9b: lyrics & about modals ─────────────────────────────────── */
+#lyrics-overlay, #about-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.82);
+  z-index: 1000;
+  padding: 24px;
+}
+#lyrics-overlay[hidden], #about-overlay[hidden] { display: none; }
+
+.lyrics-panel, .about-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 900px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lyrics-header, .about-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lyrics-header span:first-child,
+.about-header span:first-child {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+#lyrics-img, #about-img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  background: #000;
+}
+
+.lyrics-nav, .about-nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.about-text {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 700px;
+  text-align: center;
+  margin: 0 auto;
+}
+.about-text a {
+  color: var(--accent);
+}
+
 .song-card-text {
   flex: 1 1 auto;
   display: flex;
