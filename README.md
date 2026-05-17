@@ -37,19 +37,43 @@ Per song:
 
 ## What this engine adds (vs the 1995 original)
 
+Practice tools:
 - **Slow-down practice** (0.25–1.5×) with pitch preservation
-- **A↔B loop** with bar-snapping and keyboard control
+- **A↔B loop** with bar-snapping, auto-swap, keyboard control
 - **"Loop here"** one-click bar loop
-- **Page-flip scrolling tablature** like Songsterr
-- **Drag/wheel/touch** to manually pan the partition
-- **NOW / NEXT chord previews** that update from playback events
-- **Per-exercise progress** tracking with completed-counters per song
-- **Resume on reload** — remembers last position per song
-- **iPad support** via Pointer Events
-- **Modern responsive layout** (works on phone/tablet/desktop)
-- **Keyboard shortcuts** (Space, [, ], Shift+, L, C, ←/→, ?)
-- **Settings panel** for default speed/volume + reset progress
-- **Artist jingles** on home card hover (preserved from CD)
+- **Page-flip scrolling tablature** (Songsterr-style)
+- **Drag / wheel / touch** to manually pan the partition
+- **NOW / NEXT chord previews** auto-update from playback events
+- **Hand close-up photo** of each chord shown in the NOW slot
+- **"↪ jump in song"** icon per chord — seeks video to where the chord
+  is first played
+- **Multi-segment exercises** auto-chain voice → demo → next segment
+- **Per-exercise progress tracking** with `N / total done` on home cards
+- **Resume on reload** per song
+- **iPad / touch support** via Pointer Events
+- **Modern responsive layout** (phone / tablet / desktop)
+- **Keyboard shortcuts** (Space, [, ], Shift+[/], L, C, ←/→, Shift+←/→, ?, W, Esc)
+- **Speed preset buttons** (0.5× / 0.75× / 1×)
+- **Settings panel** with default speed / volume / reset progress
+
+CD content preserved (often improved):
+- **Artist jingles** on home card hover (from CD `TITLE/JGL-*.WAV`)
+- **Artist portraits** on home cards (cropped from `TITLE1B.BMP`, `TITLE2.BMP`)
+- **Title-screen backdrop** behind home cards (dimmed)
+- **Lyrics overlay** with original CD BMPs + prev/next pagination (`W` key)
+- **About / Credits** modal with the 6 original Ubi Soft credits pages
+- **Tuner** with 6 reference-note samples from the CD (no microphone /
+  DSP — just listen and tune by ear)
+- **Toolkit** view (9 generic technique exercises) with faithful
+  CD-style playback: hover a button to hear title voice; click opens
+  with multi-segment chain (slow + voice with guitar close-up →
+  silent normal-tempo demo)
+- Exercise renumbering by song-curriculum order (first hotspot in the
+  song = "Exercise 1", regardless of CD's file numbering)
+
+Production deployment example: live at
+**[guitar.petrochenko.info](https://guitar.petrochenko.info)** behind a
+Cloudflare Tunnel — see [`DEPLOY.md`](DEPLOY.md).
 
 ## Tech stack
 

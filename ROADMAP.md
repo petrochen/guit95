@@ -1,5 +1,14 @@
 # Guit95 Modern — Roadmap
 
+> **STATUS (May 2026):** ✅ Phases 0–4, 7, 8 complete. ✅ Phase 9
+> (CD nostalgia content) complete. ❌ Phases 5 (FFT tuner) and 6
+> (metronome) explicitly dropped — user has phone equivalents.
+> 🔜 UI overhaul via Claude Design planned. Live deployment at
+> **https://guitar.petrochenko.info**. Full feature inventory in
+> `CLAUDE.md`.
+
+---
+
 > Поэтапный план реализации. Каждый этап — самостоятельный вертикальный
 > срез: после каждого фазы можно сесть с гитарой и пользоваться. Никакой
 > «инфраструктура → потом фичи».

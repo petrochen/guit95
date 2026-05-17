@@ -3,34 +3,49 @@
 > Идеи отложенные «на потом». Всё что в этом файле — не блокер, не баг,
 > а предложения по развитию. Можно брать в работу по одной фразе.
 
-## Visual polish (UI improvements)
+## ✅ Done since previous version
 
-> Главная мотивация: сейчас выглядит как «инженерный прототип», нужно
-> довести до «продукт».
+- ✅ **Фото артистов на карточках home** (Phase 7b — cropped from CD
+  TITLE1B.BMP + TITLE2.BMP via ffmpeg crop)
+- ✅ **Hover-анимации карточек** (translateY-2px + border highlight)
+- ✅ **Hand close-up фото в NOW** (Phase 9a)
+- ✅ **«↪ Show in song» jump-icon** на аккордах (Phase 9a)
+- ✅ **Lyrics overlay** — 3-4 страницы из CD (Phase 9b)
+- ✅ **About / Credits** — 6 страниц Ubi Soft (Phase 9b)
+- ✅ **Title backdrop** на home (Phase 9b — dimmed TITLE1B.BMP)
+- ✅ **Tuner reference notes** (Phase 9c — 6 эталонов WAV с CD)
+- ✅ **Toolkit** (Phase 9c — 9 общих упражнений с правильным close-up+голос)
+- ✅ **Multi-segment exercises** (Phase 9c)
+- ✅ **Production deploy** на guitar.petrochenko.info (Docker + Caddy +
+  Cloudflare Tunnel на mpc)
+- ✅ **GitHub repo** github.com/petrochen/guit95 (публичный, MIT для движка)
 
-- [ ] **Фото артистов на карточках home** — на CD они уже есть в
-      `/Volumes/Guitar/GUITAR/TITLE/JH01.BMP` (Jimi), `BM01.BMP` (Bob
-      Marley), `RV01.BMP` (Stevie), `LS01.BMP` (Lynyrd), `KS01.BMP`
-      (Kansas), `BD01.BMP` (Dylan), `CS01.BMP` (Cat Stevens). Скопировать
-      в `assets/artists/`, конвертировать BMP→PNG, добавить `<img>` на
-      каждую карточку. ~1 час.
-- [ ] **Акцентный цвет на песню** — добавить `accentColor` в SongMeta
-      (Hendrix=psychedelic-purple, Marley=raster-green, SRV=blues-blue,
-      Skynyrd=southern-amber, Kansas=amber-rust, Dylan=folk-tan,
-      Cat Stevens=warm-orange). Использовать как hover-glow на
-      карточках, акцент на NOW в песне. ~30 мин.
-- [ ] **Типографика** — кастомный заголовочный шрифт (системный serif?
-      или Google Font?), нормализовать шкалу размеров (12/14/16/20/28),
-      межстрочные. ~1 час.
-- [ ] **Hover-анимации карточек** — `transform: scale(1.02);
-      box-shadow: ...; transition: 0.2s ease`. ~30 мин.
-- [ ] **Плавные переходы Home↔Song** — fade-out/fade-in 200ms,
-      сейчас snap. View Transitions API или CSS opacity. ~1 час.
-- [ ] **Loading state при переключении песни** — spinner или skeleton,
-      пока mp4 + sco + chd грузятся. ~30 мин.
-- [ ] **Палитра потеплее** — не #111 чёрный, а #1a1612 (warm dark).
-      Акценты не плоские. ~30 мин.
-- [ ] **Логотип / favicon** — мини-знак приложения. ~30 мин.
+## Visual polish (UI overhaul) — planned via Claude Design
+
+> Сейчас выглядит как «улучшенный инженерный прототип». Запланирован
+> **Retro 90s synthwave redesign через Claude Design** (web tool от
+> Anthropic Labs, claude.ai/design). Workflow: импортировать
+> petrochen/guit95 → итерировать дизайн на canvas → Handoff to Claude
+> Code → применить bundle на кодбейс.
+
+- [ ] **Claude Design UI revamp** — вектор: retro 90s synthwave.
+      Палитра: deep purple `#1a0d24` background, hot pink `#ff2e88` +
+      electric cyan `#00f5ff` accents. VT323 (Google Font) для display.
+      Subtle CRT scanlines overlay. Chunky hard-shadow buttons
+      `box-shadow: 3px 3px 0 #000`. Per-song neon accent в NOW.
+- [ ] **Акцентный цвет на песню** — `accentColor` в SongMeta. Цвета
+      (synthwave-tinted):
+      Hendrix=psychedelic-purple `#a855f7`,
+      Marley=rasta-lime `#84cc16`,
+      SRV=blues-blue `#3b82f6`,
+      Skynyrd=southern-amber `#f97316`,
+      Kansas=dust-amber `#fbbf24`,
+      Dylan=folk-lavender `#a78bfa`,
+      Cat Stevens=coral `#fb7185`.
+- [ ] **Типографика** — VT323 для display + system sans для body.
+- [ ] **Плавные переходы Home↔Song** — fade 200ms (View Transitions API).
+- [ ] **Loading state при переключении песни** — spinner / skeleton.
+- [ ] **Логотип / favicon** — мини-знак приложения.
 
 ## Practice features
 
@@ -45,47 +60,47 @@
       localStorage `notes[slug][exerciseDisplayIdx] = string`. ~1 час.
 - [ ] **Зеркало видео для левшей** — `transform: scaleX(-1)` на
       `<video>` с кнопкой-тогглом. ~30 мин.
-- [ ] **Tuner (Phase 5 деферрный)** — FFT/YIN тюнер по микрофону. См.
-      исходный спек в ROADMAP.md.
-- [ ] **Metronome (Phase 6 деферрный)** — Web Audio scheduled tick.
-      См. исходный спек в ROADMAP.md.
+- ❌ **Tuner FFT/YIN** — отвергнуто (у пользователя тюнер в телефоне)
+- ❌ **Metronome** — отвергнуто (у пользователя метроном в телефоне)
 
 ## Onboarding / открытие
 
 - [ ] **Onboarding-тур** при первом визите — 5 шагов с подсветкой
       кнопок (Shepherd.js без зависимостей или просто DIV-overlay
       handcrafted). ~2 часа.
-- [ ] **About / Credits** — отдельная страница (#/about) с текстом:
-      «Это переиздание учебного CD Ubi Soft 1995 года для личного
-      использования. Авторские права на музыку и видео принадлежат
-      исполнителям и Ubi Soft.» + ссылка на оригинальные титры. ~30 мин.
+- ✅ **About / Credits** (Phase 9b — 6 оригинальных страниц Ubi Soft)
 
 ## Доставка / устройства
 
 - [ ] **PWA — installable** — manifest.json + service worker + icon.
       Можно «Add to Dock» на macOS, открывать как родное приложение.
       ~1 час.
-- [ ] **Деплой на личный сервер с базовой аутентификацией** —
-      см. секцию ниже. ~2-3 часа.
+- ✅ **Деплой на личный сервер** (mpc, Caddy + Cloudflare Tunnel,
+      live на guitar.petrochenko.info)
+- [ ] **Базовая аутентификация** — Cloudflare Access (по Google
+      account) или Caddy `basicauth`. Сейчас открыто (security-by-
+      obscurity через приватную DNS).
+- [ ] **GitHub Actions auto-deploy** — на сервере уже крутится
+      self-hosted runner. Нужен workflow для `npm run build` + rsync
+      на push в main. ~30 мин.
 
 ## Архитектура / технический долг
 
-- [ ] **Многосегментные упражнения** — сейчас играет только `1-1.avi`,
-      хотя у некоторых упражнений есть `1-2`, `1-3` (Phase 4b
-      ограничение). Реализовать минимальный sequence runner.
+- ✅ **Многосегментные упражнения** (Phase 9c — EXR парсер собирает
+      все aviopen + playsnd, UI рендерит Part-кнопки)
 - [ ] **Полный sequence-runner для всех 15 опкодов** оригинального
       CD — позволит переиспользовать оригинальные сценарии 1-в-1.
-      Большая работа. См. SPEC.md §3.2.
-- [ ] **Альтернативные аранжировки** — каждая песня имеет
-      `<song>1.sng` и `<song>2.sng` (вторая обычно проще). Сейчас
-      берём только первую. Добавить switcher.
-- [ ] **Альтернативные chord set** — некоторые песни имеют `chords2.cho`
-      с упрощёнными аккордами. Сейчас игнорируется.
-- [ ] **Toolkit (10 общих упражнений)** — независимая база упражнений
-      на технику, не привязанная к песне. Есть на CD в `TOOLKIT/`.
-- [ ] **Words / тексты с подсветкой** — для каждой песни в `WORDS/`
-      лежат тексты с подсветкой по таймкоду (нужно проверить, есть ли
-      синхронизация в данных). Karaoke-style display.
+      Большая работа. См. SPEC.md §3.2. Низкий приоритет.
+- ❌ **Альтернативные аранжировки `<song>2.sng`** — отвергнуто, это
+      просто альт UI layout (другие позиции кнопок на `play2.bmp`
+      фоне), ссылается на тот же SCO + те же exercises. Не другой
+      контент.
+- ❌ **`chords2.cho`** — отвергнуто, та же причина (только UI вариация)
+- ✅ **Toolkit** (Phase 9c — 9 упражнений с faithful CD-style чередованием
+      close-up+голос → silent normal-tempo demo)
+- ❌ **Words / тексты с подсветкой** — отвергнуто, нет таймингов в
+      WORDS файлах на CD. Только статичные страницы — реализовано
+      как Lyrics overlay в Phase 9b.
 - [ ] **Глобальные UBI-анимации** — оригинал показывал 8 декоративных
       анимаций (`ANIMS/*.UBI`) каждые 5-60 секунд. Формат не
       разобран. Низкий приоритет.
@@ -102,9 +117,36 @@
 - [ ] **Search / filter songs** — пока всего 7, не нужно. Если когда-то
       добавить разные CD.
 
+## Claude tooling automation (research result, май 2026)
+
+> Изучено в чате — что из инфраструктуры Claude может ускорить
+> разработку/деплой этого проекта.
+
+- [ ] **Telegram channel** — `claude --channels plugin:telegram@claude-plugins-official`.
+      Бот в Telegram → пишу с телефона «фикс баг X», «деплой на mpc»,
+      «добавь идею в BACKLOG» → клод-агент дома делает + отвечает в
+      Telegram. Setup: BotFather → токен → `/plugin install telegram@claude-plugins-official`
+      → `/telegram:configure <token>`. ~10 мин.
+- [ ] **Git push hook → auto-deploy + Telegram notify** —
+      `~/.claude/settings.json` hook `Stop` после успешного git push:
+      `rsync dist/ root@mpc:/data/projects/guitar/dist/` + Telegram
+      «✅ deployed».
+- [ ] **`/schedule` weekly backup** — раз в неделю: `rsync ~/Downloads/Guitar.iso
+      root@mpc:/data/backups/guitar/` + проверка свободного места + ping
+      в Telegram если <50ГБ.
+- [ ] **Claude Code Web** для работы с чужого компа — клон репо в
+      облачном sandbox без вашего Mac.
+- [ ] **Notion MCP** для practice journal — каждый день: «сколько занимался,
+      какие фразы освоил, что было сложно».
+- [ ] **Spotify MCP** для контекста — «какую песню я слушаю в Spotify?»
+      → если есть в нашем CD-listing → быстрый jump к её плееру.
+
 ---
 
 ## Технические детали для деплоя на свой сервер
+
+> ⚠ Этот раздел был планом ДО фактической раскатки. Сейчас живёт на
+> guitar.petrochenko.info. Актуальная инструкция — в `DEPLOY.md`.
 
 ### Что и куда
 

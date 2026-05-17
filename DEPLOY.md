@@ -1,5 +1,13 @@
 # Deploy guide — guitar app on minipc (mpc.local)
 
+> **STATUS:** Раскатано и работает. Live: **https://guitar.petrochenko.info**
+>
+> Этот файл описывает изначально запланированный flow. Фактически
+> применённая конфигурация (мая 2026) — ниже отмечена пометкой
+> ✅ DEPLOYED. Расхождения с планом минимальны.
+
+---
+
 > Деплой на личный сервер по существующим конвенциям сервера
 > (читай `/root/CLAUDE.md` и `/data/projects/caddy/INFRASTRUCTURE.md`
 > на mpc для общего контекста).

@@ -99,9 +99,21 @@ Guitar.iso (or the physical CD).
 | Exercise renumber by song order | derived from SCO difficulties | 4d |
 | Exercise tab image         | `<song>/EXERCICE/<N>/sco<N>-2.bmp` | 4b/4e |
 | Per-artist jingles         | `TITLE/JGL-*.WAV`         | 7b    |
-| (Skipped) Tuner            | `TUNNING/*.WAV` + DSP     | 5 deferred |
-| (Skipped) Metronome        | `METRONOM/TICK.WAV`       | 6 deferred |
-| (Out of scope) Word sync   | `<song>/WORDS/*.SCR`      | not done |
+| Artist portrait on home cards | cropped from `TITLE/TITLE1B.BMP` + `TITLE2.BMP` | 7b polish |
+| Title-screen home backdrop | `TITLE/TITLE1B.BMP`       | 9b    |
+| Hand close-up photo in NOW | CHD `hand=` field + `<song>/CHORDS/<chord>.bmp` | 9a |
+| "Where in song?" chord jump| CHD `avi=` (Hey Joe/Life) + SCO event scan (others) | 9a |
+| Lyrics modal (3-4 pages)   | `<song>/WORDS/words*.bmp` | 9b    |
+| Credits / About (6 pages)  | `CREDITS/*.BMP`           | 9b    |
+| Tuner reference notes      | `TUNNING/A.WAV..E2.WAV` (no FFT — just samples) | 9c |
+| Toolkit (9 generic exercises, 4 segments each) | `TOOLKIT/{1..9}/*.AVI` + `REX*.WAV` | 9c |
+| Multi-segment song exercises | EXR multi-aviopen/playsnd | 9c (parser) |
+| (Out of scope) Microphone-FFT tuner | `TUNNING/*.TUN` DSP params | rejected (user has phone tuner) |
+| (Out of scope) Metronome    | `METRONOM/TICK.WAV`       | rejected (user has phone metronome) |
+| (Out of scope) Word sync    | `<song>/WORDS/*.SCR`      | no timing data in source |
+| (Out of scope) Crossroad UI | `<song>/CROSROAD/CROSSRD.SCR` | redundant with modern direct nav |
+| (Out of scope) `chords2.cho`/ `<song>2.sng` | alt layouts only — same data | redundant in modern UI |
+| (Out of scope) `ANIMS/*.UBI` | decorative random anims | UBI format not reversed; low value |
 
 ## Development conventions
 
@@ -166,49 +178,101 @@ buffer = source × DPR for sharpness, CSS sizing fluid via
 
 ## What's done / what's deferred
 
-✅ **Done (phases 0–4, 7, 8):**
-- 7 songs with home picker (CD-original order)
-- Per-song video + responsive layout
-- Synchronized scrolling tablature with cursor + bar markers
-- NOW/NEXT chord previews (auto-update from playback)
-- All 11–15 chords per song clickable with sample playback
-- Vertical/horizontal chord view toggle
-- Slow-down (0.25–1.5×) with pitch preservation
-- A↔B loop with bar-snap + keyboard control
+✅ **Done — 100% of CD's learning content + much more (phases 0–4, 7, 8, 9):**
+
+Song player (per all 7 songs):
+- Hash-routed home page with 7 song cards in original CD order
+- Each card: artist portrait (cropped from CD), title, artist name,
+  exercise count, "N / M done" progress; hover plays artist jingle
+- Per-song player: video + synchronised scrolling tablature with bar
+  markers + page-flip scroll + drag-to-pan + wheel-scroll + click-to-seek
+- NOW / NEXT chord previews auto-update from SCO `[event]` chord changes
+- Hand close-up photo shown in NOW (per chord, from CHD `hand=` field
+  or derived filename)
+- All-chords row buttons: click plays sample + shows in NOW; `↪` icon
+  jumps video to where chord first plays in the song
+- Vertical / horizontal chord-diagram orientation toggle (persisted)
+
+Practice tools:
+- Slow-down 0.25×–1.5× with pitch preservation (Safari + Chrome)
+- Speed preset buttons (0.5× / 0.75× / 1×)
+- A↔B loop with bar-snap + auto-swap when inverted
 - "Loop here" 1-bar quick-loop
-- Difficulty hotspots overlay → opens linked exercise
-- Per-exercise voice-then-video auto-play
-- Exercise renumbering by song-curriculum order
-- Exercise tab image replaces song tab in bottom area
-- Voice/exercise-video mutual exclusion
-- Hash routing (#/, #/song/<slug>)
-- Artist jingles on home card hover/click
-- Resume playback on reload (per song)
-- iPad touch via Pointer Events
-- Help overlay (?), Settings panel (⚙)
-- Per-exercise progress tracking (✓ Mark done + counter on cards)
-- Smooth trackpad wheel scroll on tab strip
+- Keyboard hotkeys: Space, [, ], Shift+[, Shift+], L, C, ←/→, Shift+←/→,
+  ?, Esc, W (all use `event.code`, layout-independent)
+
+Lessons:
+- Difficulty hotspots on tab strip (per-region colored overlays from
+  SCO `[difficulty]`) — click → opens linked exercise
+- Exercise pane (in-place replacement of video pane): voice intro auto-
+  plays then video; manual replay buttons; Prev/Next/Back; dropdown
+  selector in header
+- Exercise renumbering by song-curriculum order (first hotspot = "Exercise 1")
+- Multi-segment exercises: voice + video pairs auto-chain
+- Exercise tab image replaces song tab strip while open
+- Voice / exercise-video mutex (play one stops the other)
+- "✓ Mark done" per exercise with localStorage persistence + counter on home
+
+Content additions from CD (Phase 9):
+- Lyrics overlay (♫ or `W`): 3-4 static BMP pages per song
+- About / Credits overlay: 6 original Ubi Soft credit pages from CD
+- Title-screen backdrop on home (dimmed `TITLE1B.BMP`)
+- Tuner overlay: 6 string buttons (E2/A/D/G/B/E4) with original CD
+  reference samples — click to play, no microphone needed
+- Toolkit view: 9 generic technique exercises with hover-title-voice,
+  multi-segment playback matching original CD design
+  (close-up + voice → silent normal-tempo demo)
+
+Quality of life:
+- Resume song position on reload (per song, in localStorage)
+- Settings panel (⚙): default speed + default volume + reset progress
+- Help overlay (`?`): keyboard shortcut reference
+- iPad touch support via Pointer Events + `touchAction: none`
+- Smooth trackpad wheel-scroll on tab strip (disable transition during
+  wheel gesture)
+- Chord buttons disabled during song playback (no overlapping audio)
+
+Production deployment:
+- Live at **https://guitar.petrochenko.info** (Cloudflare Tunnel +
+  Caddy reverse proxy on personal MiniPC)
+- Static nginx container; rsync deploy pipeline
+- See `DEPLOY.md`
 
 ⏸ **Deferred to BACKLOG.md:**
-- Tuner (Phase 5 — FFT/YIN microphone pitch detection)
-- Metronome (Phase 6)
-- Visual polish (artist photos, accent colors, typography, animations)
-- Practice journal, named loops, exercise notes
-- Onboarding tour, About page
+- Visual polish: per-song accent colors, typography upgrade, smooth
+  Home↔Song transitions, loading states, warmer dark palette
+- Practice journal (daily minutes, weekly streak)
+- Named loops ("куплет", "соло")
+- Per-exercise text notes
 - PWA installable
-- Multi-segment exercises, full sequence-runner, words sync, alt arrangements
+- UI overhaul via Claude Design (planned)
 
-❌ **Out of scope (lawful concerns):**
-- Distributing the CD assets publicly
-- Cloud-hosting that would make the assets discoverable
+❌ **Explicitly rejected (not coming):**
+- Metronome — user has phone metronome
+- FFT/microphone tuner — user has phone tuner; reference notes are enough
+- Crossroad view (per-song hub) — redundant with our direct nav
+- Multi-arrangement `<song>2.sng` — only an alt UI layout, same content
+- `chords2.cho` — same, only alt UI scene
+- UBI animations — decorative, custom unparsed format, low value
+- Original Win95 sprite UI — pure nostalgia, would lose modern UX gains
+- Help screens (HELP/*) — CD folders are empty, no content exists
+
+❌ **Out of scope (legal concerns):**
+- Distributing the CD assets publicly (gitignored)
+- Cloud-hosting that would make assets discoverable / CDN-cached
 
 ## Server deployment
 
-See `DEPLOY.md`. Target: personal MiniPC at `192.168.2.2` (alias `mpc`),
-Ubuntu 24.04 with Docker + Caddy reverse proxy + Cloudflare Tunnel.
+**Live:** https://guitar.petrochenko.info (Cloudflare Tunnel → Caddy →
+nginx container on personal MiniPC at `192.168.2.2`, alias `mpc`)
 
-Project will live at `/data/projects/guitar/` per the server's
-existing convention. Domain: `guitar.mintpos.tech`.
+See `DEPLOY.md` for the deployed setup. Stack:
+- Project lives at `/data/projects/guitar/` per server convention
+- `docker-compose.yml` runs `nginx:alpine` joined to `caddy_network`
+- Caddy block: `guitar.petrochenko.info { reverse_proxy guitar:80 }`
+- DNS CNAME (proxied) + Cloudflare Tunnel public hostname registration
+- `rsync -av dist/ root@192.168.2.2:/data/projects/guitar/dist/` for updates
+- Backup `Guitar.iso` on mpc at `/data/backups/guitar/` (TODO: not yet copied)
 
 ## Key learnings during build
 
@@ -223,13 +287,32 @@ existing convention. Domain: `guitar.mintpos.tech`.
 - **macOS Safari needs `webkitPreservesPitch` AND `preservesPitch`**
   for slow-down without chipmunk effect.
 - **YIN > FFT for guitar pitch detection** — low E (82 Hz) is below
-  FFT bin resolution at typical buffer sizes. (Tuner deferred but
-  this is the intended approach.)
+  FFT bin resolution at typical buffer sizes. (Tuner ultimately
+  rejected — user has phone tuner.)
 - **Pointer Events unify mouse + touch** — cleanest path to iPad
   support; no separate touch handler code.
 - **Always commit per feature**, even small ones. We had a Sonnet
-  agent time out at ~108min in Phase 7; thanks to incremental
+  agent time out at ~108 min in Phase 7; thanks to incremental
   commits we lost zero code.
+- **Nested DOM bites you on hide/show**: Phase 9c first impl nested
+  `#toolkit-view` inside `#home-view`; hiding home also hid toolkit
+  → black screen. Fix: make them siblings.
+- **CD toolkit has TWO camera angles per lesson**: `<N>-Kg.avi` is the
+  guitar close-up shown DURING voice explanation; `<N>-K.avi` is the
+  full-body overview played AFTER as silent normal-tempo demo. First
+  implementation paired voice with the wrong one (overview) — Phase 9c
+  rewrite uses close-up + voice as the original CD intended.
+- **`<song>2.sng` and `chords2.cho` are NOT alt content**: they're alt
+  UI layouts (different button positions on `play2.bmp` background)
+  referencing the same SCO/CHD. Not worth porting.
+- **WORDS files have no timing**: lyrics-as-image with prev/next
+  pagination only — no karaoke-sync data exists on CD.
+- **HELP/ folders on CD are empty** — no help content was ever written.
+- **`hand=` field on CHD** isn't always present (only Hey Joe + Life
+  have it explicitly); derive filename from chord name otherwise
+  (lowercase + strip underscore + `.png`).
+- **`avi=` field on CHD** (first-frame-where-chord-plays) only on Hey
+  Joe + Life; fallback: scan SCO `[event] chord=N` for first occurrence.
 
 ## When in doubt
 
