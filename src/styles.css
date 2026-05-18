@@ -63,6 +63,18 @@ body {
   gap: 16px;
 }
 
+.disc-section-heading {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 4px 0 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
 .song-card {
   display: flex;
   flex-direction: row;

@@ -904,6 +904,32 @@ function stopJingle(): void {
   jingleAudio.src = "";
 }
 
+function makeSongCard(song: SongMeta): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.className = "song-card";
+  btn.dataset["slug"] = song.slug;
+  btn.title = "Hover to hear the artist jingle";
+  const doneCount = getCompleted(song.slug).size;
+  const progressLine = doneCount > 0
+    ? `<div class="song-card-progress">${doneCount} / ${song.exerciseCount} done</div>`
+    : "";
+  btn.innerHTML = `
+    <img class="song-card-portrait" src="${song.artistImageUrl}" alt="${song.artist}" loading="lazy" />
+    <div class="song-card-text">
+      <div class="song-card-title">${song.title}</div>
+      <div class="song-card-artist">${song.artist}</div>
+      <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
+      ${progressLine}
+    </div>
+  `;
+  btn.addEventListener("mouseenter", () => playJingle(song.jingleUrl));
+  btn.addEventListener("click", () => {
+    playJingle(song.jingleUrl);
+    setTimeout(() => { location.hash = `#/song/${song.slug}`; }, 0);
+  });
+  return btn;
+}
+
 function renderHome(): void {
   disposeSong();
   showHome();
@@ -911,32 +937,23 @@ function renderHome(): void {
   const grid = homeView.querySelector(".song-grid")!;
   grid.innerHTML = "";
 
-  for (const song of SONGS) {
-    const btn = document.createElement("button");
-    btn.className = "song-card";
-    btn.dataset["slug"] = song.slug;
-    btn.title = "Hover to hear the artist jingle";
-    const doneCount = getCompleted(song.slug).size;
-    const progressLine = doneCount > 0
-      ? `<div class="song-card-progress">${doneCount} / ${song.exerciseCount} done</div>`
-      : "";
-    btn.innerHTML = `
-      <img class="song-card-portrait" src="${song.artistImageUrl}" alt="${song.artist}" loading="lazy" />
-      <div class="song-card-text">
-        <div class="song-card-title">${song.title}</div>
-        <div class="song-card-artist">${song.artist}</div>
-        <div class="song-card-meta">${song.exerciseCount} exercise${song.exerciseCount !== 1 ? "s" : ""}</div>
-        ${progressLine}
-      </div>
-    `;
-    btn.addEventListener("mouseenter", () => {
-      playJingle(song.jingleUrl);
-    });
-    btn.addEventListener("click", () => {
-      playJingle(song.jingleUrl);
-      setTimeout(() => { location.hash = `#/song/${song.slug}`; }, 0);
-    });
-    grid.appendChild(btn);
+  const disc1 = SONGS.filter(s => s.disc === 1);
+  const disc2 = SONGS.filter(s => s.disc === 2);
+
+  if (disc2.length > 0) {
+    const h1 = document.createElement("div");
+    h1.className = "disc-section-heading";
+    h1.textContent = "Guitar Hits · Vol. 1";
+    grid.appendChild(h1);
+    disc1.forEach(s => grid.appendChild(makeSongCard(s)));
+
+    const h2 = document.createElement("div");
+    h2.className = "disc-section-heading";
+    h2.textContent = "Guitar Hits · Vol. 2 — The Beatles";
+    grid.appendChild(h2);
+    disc2.forEach(s => grid.appendChild(makeSongCard(s)));
+  } else {
+    disc1.forEach(s => grid.appendChild(makeSongCard(s)));
   }
 }
 
@@ -1117,8 +1134,12 @@ function showLyricsPage(): void {
   const total = currentMeta.wordsCount;
   if (lyricsPage < 1) lyricsPage = 1;
   if (lyricsPage > total) lyricsPage = total;
-  const num = String(lyricsPage).padStart(2, "0");
-  lyricsImg.src = `${currentMeta.rawDir}words/words${num}.png`;
+  if (currentMeta.lyricsImageUrl) {
+    lyricsImg.src = currentMeta.lyricsImageUrl;
+  } else {
+    const num = String(lyricsPage).padStart(2, "0");
+    lyricsImg.src = `${currentMeta.rawDir}words/words${num}.png`;
+  }
   lyricsTitle.textContent = `${currentMeta.title} — Lyrics`;
   lyricsPageInfo.textContent = `${lyricsPage} / ${total}`;
   lyricsPrev.disabled = lyricsPage <= 1;

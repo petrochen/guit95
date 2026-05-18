@@ -3,24 +3,28 @@
 
 export type SongMeta = {
   slug: string;
+  disc: 1 | 2;            // 1 = Guit95 (classic rock), 2 = Guitar Hits Vol.2 (Beatles)
   title: string;
   artist: string;
   videoUrl: string;       // /assets/<slug>/<slug>.mp4
   rawDir: string;         // /assets/<slug>/raw/
-  scoUrl: string;         // /assets/<slug>/raw/play/<sco>.sco
+  scoUrl: string;         // /assets/<slug>/raw/play/<sco>.sco  (disc 2: raw/music/)
   chdUrl: string;         // /assets/<slug>/raw/chords/chords.chd
   chordImageUrl: string;  // /assets/<slug>/raw/chords/<picturefile>.png
-  tabImageUrl: string;    // /assets/<slug>/raw/play/<scorefile>.png
+  tabImageUrl: string;    // /assets/<slug>/raw/play/<scorefile>.png  (disc 2: raw/music/)
   exerciseCount: number;  // real exercises only (folder 0 excluded)
   jingleUrl: string;      // /assets/jingles/<file>.wav
   artistImageUrl: string; // /artists/<slug>.png — portrait cropped from CD title screen
   wordsCount: number;     // number of lyrics pages (raw/words/wordsNN.png)
+  lyricsImageUrl?: string; // disc 2: single non-standard filename (e.g. raw/words/m-words.png)
 };
 
-// Order matches the original CD title screen (TITLE1.TIT page 1 then TITLE2.TIT page 2).
+// Disc 1: Guit95 — order matches original CD title screen (TITLE1.TIT page 1 then TITLE2.TIT page 2).
+// Disc 2: Guitar Hits Vol.2 — order matches MENU.SCR button order on the Beatles disc.
 export const SONGS: SongMeta[] = [
   {
     slug: "heyjoe",
+    disc: 1,
     title: "Hey Joe",
     artist: "Jimi Hendrix",
     videoUrl: "/assets/heyjoe/heyjoe.mp4",
@@ -36,6 +40,7 @@ export const SONGS: SongMeta[] = [
   },
   {
     slug: "woman",
+    disc: 1,
     title: "No Woman, No Cry",
     artist: "Bob Marley",
     videoUrl: "/assets/woman/woman.mp4",
@@ -51,6 +56,7 @@ export const SONGS: SongMeta[] = [
   },
   {
     slug: "life",
+    disc: 1,
     title: "Life by the Drop",
     artist: "Stevie Ray Vaughan",
     videoUrl: "/assets/life/life.mp4",
@@ -66,6 +72,7 @@ export const SONGS: SongMeta[] = [
   },
   {
     slug: "sweet",
+    disc: 1,
     title: "Sweet Home Alabama",
     artist: "Lynyrd Skynyrd",
     videoUrl: "/assets/sweet/sweet.mp4",
@@ -81,6 +88,7 @@ export const SONGS: SongMeta[] = [
   },
   {
     slug: "dust",
+    disc: 1,
     title: "Dust in the Wind",
     artist: "Kansas",
     videoUrl: "/assets/dust/dust.mp4",
@@ -96,6 +104,7 @@ export const SONGS: SongMeta[] = [
   },
   {
     slug: "blowin",
+    disc: 1,
     title: "Blowin' in the Wind",
     artist: "Bob Dylan",
     videoUrl: "/assets/blowin/blowin.mp4",
@@ -111,6 +120,7 @@ export const SONGS: SongMeta[] = [
   },
   {
     slug: "wild",
+    disc: 1,
     title: "Wild World",
     artist: "Cat Stevens",
     videoUrl: "/assets/wild/wild.mp4",
@@ -123,6 +133,132 @@ export const SONGS: SongMeta[] = [
     jingleUrl: "/assets/jingles/jgl-cs01.wav",
     artistImageUrl: "/artists/wild.png",
     wordsCount: 3,
+  },
+
+  // ── Guitar Hits Vol. 2 — The Beatles ───────────────────────────────────────
+  // Source: Guitar2.ISO / GUITAR2/<FOLDER>/
+  // Structural differences from disc 1:
+  //   - SCO + tab BMP live in MUSIC/ (not PLAY/)
+  //   - Lyrics: single page with non-standard filename (lyricsImageUrl)
+  //   - Jingles: MENU/J-<letter>.WAV
+  {
+    slug: "michelle",
+    disc: 2,
+    title: "Michelle",
+    artist: "The Beatles",
+    videoUrl: "/assets/michelle/michelle.mp4",
+    rawDir: "/assets/michelle/raw/",
+    scoUrl: "/assets/michelle/raw/music/michelle.sco",
+    chdUrl: "/assets/michelle/raw/chords/mchords.chd",
+    chordImageUrl: "/assets/michelle/raw/chords/mgril.png",
+    tabImageUrl: "/assets/michelle/raw/music/m-score.png",
+    exerciseCount: 6,
+    jingleUrl: "/assets/jingles/j-m.wav",
+    artistImageUrl: "/artists/michelle.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/michelle/raw/words/m-words.png",
+  },
+  {
+    slug: "yesterday",
+    disc: 2,
+    title: "Yesterday",
+    artist: "The Beatles",
+    videoUrl: "/assets/yesterday/yesterday.mp4",
+    rawDir: "/assets/yesterday/raw/",
+    scoUrl: "/assets/yesterday/raw/music/yesterd.sco",
+    chdUrl: "/assets/yesterday/raw/chords/ychords.chd",
+    chordImageUrl: "/assets/yesterday/raw/chords/ygril.png",
+    tabImageUrl: "/assets/yesterday/raw/music/y-score.png",
+    exerciseCount: 9,
+    jingleUrl: "/assets/jingles/j-y.wav",
+    artistImageUrl: "/artists/yesterday.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/yesterday/raw/words/y-words.png",
+  },
+  {
+    slug: "letitbe",
+    disc: 2,
+    title: "Let It Be",
+    artist: "The Beatles",
+    videoUrl: "/assets/letitbe/letitbe.mp4",
+    rawDir: "/assets/letitbe/raw/",
+    scoUrl: "/assets/letitbe/raw/music/let.sco",
+    chdUrl: "/assets/letitbe/raw/chords/lchords.chd",
+    chordImageUrl: "/assets/letitbe/raw/chords/lgril.png",
+    tabImageUrl: "/assets/letitbe/raw/music/lscore.png",
+    exerciseCount: 15,
+    jingleUrl: "/assets/jingles/j-l.wav",
+    artistImageUrl: "/artists/letitbe.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/letitbe/raw/words/l-words.png",
+  },
+  {
+    slug: "norwegian",
+    disc: 2,
+    title: "Norwegian Wood",
+    artist: "The Beatles",
+    videoUrl: "/assets/norwegian/norwegian.mp4",
+    rawDir: "/assets/norwegian/raw/",
+    scoUrl: "/assets/norwegian/raw/music/nor.sco",
+    chdUrl: "/assets/norwegian/raw/chords/nchords.chd",
+    chordImageUrl: "/assets/norwegian/raw/chords/ngril.png",
+    tabImageUrl: "/assets/norwegian/raw/music/nscore.png",
+    exerciseCount: 14,
+    jingleUrl: "/assets/jingles/j-n.wav",
+    artistImageUrl: "/artists/norwegian.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/norwegian/raw/words/n-words.png",
+  },
+  {
+    slug: "gottaget",
+    disc: 2,
+    title: "Got to Get You into My Life",
+    artist: "The Beatles",
+    videoUrl: "/assets/gottaget/gottaget.mp4",
+    rawDir: "/assets/gottaget/raw/",
+    scoUrl: "/assets/gottaget/raw/music/got.sco",
+    chdUrl: "/assets/gottaget/raw/chords/gchords.chd",
+    chordImageUrl: "/assets/gottaget/raw/chords/ggril.png",
+    tabImageUrl: "/assets/gottaget/raw/music/g-score2.png",
+    exerciseCount: 5,
+    jingleUrl: "/assets/jingles/j-g.wav",
+    artistImageUrl: "/artists/gottaget.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/gottaget/raw/words/g-words.png",
+  },
+  {
+    slug: "universe",
+    disc: 2,
+    title: "Across the Universe",
+    artist: "The Beatles",
+    videoUrl: "/assets/universe/universe.mp4",
+    rawDir: "/assets/universe/raw/",
+    scoUrl: "/assets/universe/raw/music/univer.sco",
+    chdUrl: "/assets/universe/raw/chords/uchords.chd",
+    chordImageUrl: "/assets/universe/raw/chords/ugril.png",
+    tabImageUrl: "/assets/universe/raw/music/u-score.png",
+    exerciseCount: 9,
+    jingleUrl: "/assets/jingles/j-u.wav",
+    artistImageUrl: "/artists/universe.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/universe/raw/words/u-words.png",
+  },
+  {
+    slug: "blackbird",
+    disc: 2,
+    title: "Blackbird",
+    artist: "The Beatles",
+    videoUrl: "/assets/blackbird/blackbird.mp4",
+    rawDir: "/assets/blackbird/raw/",
+    scoUrl: "/assets/blackbird/raw/music/black.sco",
+    chdUrl: "/assets/blackbird/raw/chords/bchords.chd",
+    chordImageUrl: "/assets/blackbird/raw/chords/bgril.png",
+    tabImageUrl: "/assets/blackbird/raw/music/b-score.png",
+    exerciseCount: 6,
+    jingleUrl: "/assets/jingles/j-b.wav",
+    artistImageUrl: "/artists/blackbird.png",
+    wordsCount: 1,
+    lyricsImageUrl: "/assets/blackbird/raw/words/b-words.png",
   },
 ];
 
