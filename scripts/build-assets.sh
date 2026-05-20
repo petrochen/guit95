@@ -378,8 +378,31 @@ else
       done
     fi
 
-    # ── 5. Exercise videos: AVI → MP4 ───────────────────────────────────────
+    # ── 4c. Exercise folder un-pad: 01..09 → 1..9 ──────────────────────────
+    # Songs with ≥10 exercises (letitbe=15, norwegian=14) have zero-padded
+    # folder names on CD. App expects unpadded numbering ("exercice/1/"...).
+    # Idempotent: on re-runs the raw-copy step recreates "01/" from CD, so
+    # if "1/" also exists (carries our MP4 + renamed EXR), drop the padded
+    # duplicate. Otherwise rename.
     EXERCICE_RAW2="$RAW_DEST2/exercice"
+    if [[ -d "$EXERCICE_RAW2" ]]; then
+      for N in 1 2 3 4 5 6 7 8 9; do
+        ZPAD=$(printf "%02d" "$N")
+        SRC="$EXERCICE_RAW2/$ZPAD"
+        DST="$EXERCICE_RAW2/$N"
+        if [[ -d "$SRC" ]]; then
+          if [[ -d "$DST" ]]; then
+            rm -rf "$SRC"
+            echo "    dropped duplicate: $ZPAD (kept unpadded $N)"
+          else
+            mv "$SRC" "$DST"
+            echo "    unpadded: $ZPAD → $N"
+          fi
+        fi
+      done
+    fi
+
+    # ── 5. Exercise videos: AVI → MP4 ───────────────────────────────────────
     if [[ -d "$EXERCICE_RAW2" ]]; then
       echo "==> $slug2: exercise videos (AVI → MP4)"
       for N in $(seq 1 "$EX_COUNT2"); do
